@@ -130,6 +130,19 @@ public class AWSdService extends Service implements SensorEventListener, Message
 
     }
 
+    private dataTime returnDateFromDouble(double valueToConvert){
+        dataTime returnResult = Calendar.getInstance().getTime();
+        try{
+            returnResult=(dataTime)valueToConvert;
+        }catch(Exception e)
+        {
+            Log.e(TAG,"returnDateFromDouble(): FAiled converting double To Date", e);
+        }
+    }
+
+    private double returnDoubleFromDate(dataTime valueToConvert){
+        return (double) valueToConvert;
+    }
     private static final String returnNewCHANNEL_ID() {
         String currentID = String.valueOf(R.string.app_name) + channelIDs.size();
         channelIDs.add(channelIDs.size(), currentID);
@@ -195,6 +208,7 @@ public class AWSdService extends Service implements SensorEventListener, Message
 
     @Override
     public void onMessageReceived(MessageEvent messageEvent) {
+        super.onMessageReceived(messageEvent);
         if (mSdData == null) mSdData = new SdData();
         if (mSensorManager != null) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -275,6 +289,7 @@ public class AWSdService extends Service implements SensorEventListener, Message
 
     @Override
     public void onCapabilityChanged(CapabilityInfo capabilityInfo) {
+        super.onCapabilityChanged(capabilityInfo);
         Log.d(TAG, "CapabilityInfo received: " + capabilityInfo.toString());
         if (capabilityInfo.equals(Uri.parse("wear://"))) {
             mMobileNodesWithCompatibility = capabilityInfo;
@@ -343,6 +358,7 @@ public class AWSdService extends Service implements SensorEventListener, Message
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.v(TAG, "onStartCommand()");
+        int returnFromSuper=super.onStartCommand(intent,flags,startId);
         mContext = this;
         try {
 
@@ -401,7 +417,7 @@ public class AWSdService extends Service implements SensorEventListener, Message
             }
         } catch (Exception e) {
             Log.e(TAG, "onStartCommand() ", e);
-        }
+        }//Eval cutting From Here Until End Function
         Timer appStartTimer = new Timer();
         appStartTimer.schedule(new TimerTask() {
                                    @Override
@@ -424,22 +440,23 @@ public class AWSdService extends Service implements SensorEventListener, Message
                                                        mNodeFullName = node.getDisplayName();
                                                    }
                                                } else {
-                                                   Log.e(TAG, "I should throw an exception; no nodes found");
+                                                   Log.e(TAG, "TimerTask/Run() :  no nodes found");
                                                }
+                                               //try shift 
 
 
                                            }
                                        } catch (Exception e) {
-                                           Log.e(TAG, "onStartCommand() ", e);
+                                           Log.e(TAG, "onStartCommand() /TimerTask/Run(): Excempted:", e);
                                        }
 
                                    }
 
                                }
-                , 5000);
+                , 5000); //end timerTask
 
         if (intent == null) return START_NOT_STICKY;
-        return super.onStartCommand(intent, flags, startId);
+        return returnFromSuper;
     }
 
     private void requestPermissions(String[] strings, int i) {
@@ -448,6 +465,7 @@ public class AWSdService extends Service implements SensorEventListener, Message
     @Override
     public IBinder onBind(Intent intent) {
         Log.v(TAG, "onBind()");
+        super.onBind(intent);
         try {
             createNotificationChannel();
             prepareAndStartForeground();
@@ -457,9 +475,9 @@ public class AWSdService extends Service implements SensorEventListener, Message
                             Uri.parse("wear://"), CapabilityClient.FILTER_REACHABLE
                     );
             Wearable.getMessageClient(mContext).addListener(this);
-            if (mSdData != null) if (mSdData.serverOK) bindSensorListeners();
+                if (mSdData != null) if (mSdData.serverOK) bindSensorListeners();
         } catch (Exception e) {
-            e.printStackTrace();
+                Log.e(TAG,"onBind(): Error in reloading vars ",e);
         }
         return mBinder;
     }
@@ -491,7 +509,7 @@ public class AWSdService extends Service implements SensorEventListener, Message
 
     @Override
     public void onRebind(Intent intent) {
-
+        super.onRebind(intent);
         try {
             createNotificationChannel();
             prepareAndStartForeground();
@@ -507,7 +525,7 @@ public class AWSdService extends Service implements SensorEventListener, Message
             Log.e(TAG, "onRebind(): Exception in updating capabilityClient and messageClient", e);
             ;
         }
-        super.onRebind(intent);
+        
     }
 
     private void checkAlarm() {
@@ -569,7 +587,7 @@ public class AWSdService extends Service implements SensorEventListener, Message
     @Override
     public void onSensorChanged(SensorEvent event) {
         // is this a heartbeat event and does it have data?
-
+        super.onSensorChanged(event);
         if (event.sensor.getType() == Sensor.TYPE_HEART_RATE && event.values.length > 0) {
             int newValue = Math.round(event.values[0]);
             //Log.d(LOG_TAG,sensorEvent.sensor.getName() + " changed to: " + newValue);
