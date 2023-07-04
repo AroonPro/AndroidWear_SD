@@ -42,6 +42,9 @@ import kotlin.jvm.functions.Function1;
 import kotlinx.coroutines.TimeoutKt;
 
 class AndroidSensorTest {
+    public AndroidSensorTest(){
+
+    }
     Context context;
     Application application;
     Looper looper;
