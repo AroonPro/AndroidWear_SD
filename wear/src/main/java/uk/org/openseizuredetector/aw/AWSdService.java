@@ -1009,6 +1009,11 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                             public void setOnSensorValuesChangedListener(@NonNull Function1 listener) {
 
                             }
+
+                            @Override
+                            public void onSensorAccuracyValueChanged(Sensor sensor, int accuracy){
+
+                            }
                         };
                     mSensorManager = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
                     mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);

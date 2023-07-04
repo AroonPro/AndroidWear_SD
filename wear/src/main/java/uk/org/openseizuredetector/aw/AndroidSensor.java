@@ -14,7 +14,8 @@ abstract class AndroidSensor implements MeasurableSensor, SensorEventListener {
     int mSensorType = 0;
     int mSensorSamplingPeriodUs = 0;
     int mSensorMaxReportLatencyUs;
-    private  boolean isSensorManagerInitialised;
+    private boolean isSensorManagerInitialised;
+    private boolean isSensorListening;
     AndroidSensor(Context context,
                   String sensorFeature,
                   int sensorType,
@@ -33,13 +34,17 @@ abstract class AndroidSensor implements MeasurableSensor, SensorEventListener {
         return mContext.getPackageManager().hasSystemFeature(mSensorFeature);
     }
 
+    @Override
+    public boolean isSensorListening() {
+        return isSensorListening;
+    }
 
     private SensorManager sensorManager;
     private Sensor sensor;
 
     @Override
     public void startListening() {
-        if (!doesSensorExist){
+        if (!getDoesSensorExist() || isSensorListening){
             return;
         }
         if (!isSensorManagerInitialised&&sensor == null){
@@ -49,21 +54,26 @@ abstract class AndroidSensor implements MeasurableSensor, SensorEventListener {
             sensor = sensorManager.getDefaultSensor(mSensorType);
         }
         if (Objects.nonNull(sensor)){
-            sensorManager.registerListener(this,sensor, mSensorSamplingPeriodUs, mSensorMaxReportLatencyUs);
+            isSensorListening = sensorManager.registerListener(this,sensor, mSensorSamplingPeriodUs, mSensorMaxReportLatencyUs);
         }
     }
 
     @Override
     public void stopListening() {
-        if(!doesSensorExist||!isSensorManagerInitialised){
+        if(!getDoesSensorExist()||!isSensorManagerInitialised||!isSensorListening ){
             return;
         }
-        sensorManager.unregisterListener(this);
+        try{
+            sensorManager.unregisterListener(this);
+        }
+        finally {
+            isSensorListening = false;
+        }
     }
 
     @Override
     public void onSensorChanged(SensorEvent event) {
-        if (!doesSensorExist){
+        if (!getDoesSensorExist()){
             return;
         }
         if (event.sensor.getType() == mSensorType){
