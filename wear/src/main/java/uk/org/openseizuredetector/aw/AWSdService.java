@@ -567,14 +567,12 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
         i.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
         int Flag_Intend;
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            Flag_Intend = PendingIntent.FLAG_IMMUTABLE;
-        } else {
-            Flag_Intend = PendingIntent.FLAG_UPDATE_CURRENT;
-        }
+
         PendingIntent contentIntent =
                 PendingIntent.getActivity(this,
-                        0, i, Flag_Intend);
+                        0, i, PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE
+
+                );
 
 
         if (mNotificationBuilder != null) {
@@ -648,7 +646,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.icon_24x24);
             builder.setLargeIcon(bitmap);
 
-            builder.setContentIntent(PendingIntent.getActivity(this, 1, new Intent(this, AWSdService.class), PendingIntent.FLAG_UPDATE_CURRENT));
+            builder.setContentIntent(PendingIntent.getActivity(this, 1, new Intent(this, AWSdService.class), PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE));
 
             NotificationCompat.WearableExtender extender = new NotificationCompat.WearableExtender();
 //            extender.setBackground(BitmapFactory.decodeResource(this.getResources(), R.drawable.card_background));

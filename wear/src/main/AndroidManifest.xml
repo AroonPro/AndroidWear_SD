@@ -26,6 +26,7 @@
     <uses-permission android:name="androidx.health.permission.OxygenSaturation.READ" />
     <uses-permission android:name="androidx.health.permission.HeartRate.READ" />
     <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
@@ -48,7 +49,8 @@
             android:name=".StartUpActivity"
             android:enabled="true"
             android:exported="true"
-            android:launchMode="singleTask">
+            android:launchMode="singleTask"
+            android:taskAffinity="">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -63,16 +65,18 @@
             </intent-filter>
         </activity>
 
-        <service
+        <service android:foregroundServiceType="health"
             android:name=".AWSdService"
             android:enabled="true"
             android:exported="true"
-            android:launchMode="singleTask"/>
+            android:launchMode="singleTask"
+            android:useAppZygote="true"/>
 
         <activity
             android:name=".AWSdMainActivity"
             android:exported="true"
-            android:label="Main Activity">
+            android:label="Main Activity"
+            android:taskAffinity="">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

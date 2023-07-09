@@ -30,9 +30,12 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
-import org.robolectric.android.controller.ServiceController;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.Extension;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -41,9 +44,9 @@ import java.util.stream.Collectors;
 import kotlin.jvm.functions.Function1;
 import kotlinx.coroutines.TimeoutKt;
 
-class AndroidSensorTest {
-    public AndroidSensorTest(){
 
+public class AndroidSensorTest {
+    public AndroidSensorTest(){
     }
     Context context;
     Application application;
@@ -52,7 +55,7 @@ class AndroidSensorTest {
     OsdUtil util;
     AWSdService aWsdService;
     Intent sdServerIntent;
-    ServiceController<AWSdService> controller;
+    //ServiceController<AWSdService> controller;
     SdServiceConnection sdServiceConnection;
     AndroidSensor androidSensor;
     String TAG = this.getClass().getName();
@@ -90,7 +93,7 @@ class AndroidSensorTest {
             Sensor.TYPE_SIGNIFICANT_MOTION,
             Sensor.TYPE_STATIONARY_DETECT,
             Sensor.TYPE_STEP_COUNTER,
-            Sensor.TYPE_STEP_DETECTOR
+            Sensor.TYPE_STEP_DETECTOR,
     };
 
     @BeforeEach
@@ -111,10 +114,10 @@ class AndroidSensorTest {
                 if (capabilities == null) ;
                 assert capabilities != null;
                 if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
-                    assertTrue(util.isMobileDataActive());
+                    Assertions.assertTrue(util.isMobileDataActive());
                 }
                 if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-                    assertTrue(util.isNetworkConnected());
+                    Assertions.assertTrue(util.isNetworkConnected());
                 }
             }
         }
@@ -123,7 +126,8 @@ class AndroidSensorTest {
 
     @Test
     void getDoesSensorExist() {
-        List<Object> sensorList = Arrays.asList(Sensor.class.getDeclaredFields());
+        List<Object> sensorList = Collections.singletonList(List.of(Sensor.class).get(0));
+        
         for (int sensor:
              Arrays.stream(sensorsToTest).toArray()) {
             String sensorFeature =
