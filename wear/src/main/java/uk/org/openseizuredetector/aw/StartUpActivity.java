@@ -468,6 +468,7 @@ public class StartUpActivity extends AppCompatActivity
                 if (Objects.nonNull(mConnection.mAWSdService.mSdData)) {
                     if (Constants.ACTION.STOP_WEAR_SD_ACTION.equals(mConnection.mAWSdService.mSdData.mDataType) || activateStopByBack) {
                         mUtil.stopServer();
+                        activateStopByBack = false;
                     }
                 }
             }

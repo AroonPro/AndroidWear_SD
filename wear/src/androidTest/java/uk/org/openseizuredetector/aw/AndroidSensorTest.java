@@ -1,5 +1,6 @@
 package uk.org.openseizuredetector.aw;
 
+import static androidx.core.content.ContextCompat.getSystemService;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -19,6 +20,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.test.core.app.ApplicationProvider;
+import androidx.test.internal.runner.junit4.AndroidJUnit4ClassRunner;
 
 import org.junit.After;
 import org.junit.AfterClass;
@@ -27,24 +29,36 @@ import org.junit.BeforeClass;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
-import org.robolectric.android.controller.ServiceController;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.Extension;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.runner.RunWith;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import kotlin.jvm.JvmField;
 import kotlin.jvm.functions.Function1;
 import kotlinx.coroutines.TimeoutKt;
 
-class AndroidSensorTest {
-    public AndroidSensorTest(){
 
+
+public class AndroidSensorTest {
+    public AndroidSensorTest(){
     }
+//    @JvmField
+//    @RegisterExtension
+//    val scenarioExtension = ActivityScenarioExtension.launch<MyActivity>()
+
     Context context;
     Application application;
     Looper looper;
@@ -52,10 +66,13 @@ class AndroidSensorTest {
     OsdUtil util;
     AWSdService aWsdService;
     Intent sdServerIntent;
-    ServiceController<AWSdService> controller;
+    //ServiceController<AWSdService> controller;
     SdServiceConnection sdServiceConnection;
     AndroidSensor androidSensor;
     String TAG = this.getClass().getName();
+    private  SensorManager sensorManager ;
+    List<Sensor> deviceSensors ;
+
     int[] sensorsToTest = {
             Sensor.TYPE_ALL,
             Sensor.TYPE_PROXIMITY,
@@ -90,11 +107,11 @@ class AndroidSensorTest {
             Sensor.TYPE_SIGNIFICANT_MOTION,
             Sensor.TYPE_STATIONARY_DETECT,
             Sensor.TYPE_STEP_COUNTER,
-            Sensor.TYPE_STEP_DETECTOR
+            Sensor.TYPE_STEP_DETECTOR,
     };
 
     @BeforeEach
-    public void initOsdUtil(){
+    void initOsdUtil(){
         if (Objects.isNull(application)) application = ApplicationProvider.getApplicationContext();
         if (Objects.isNull(context)) context = application.getApplicationContext();
         if (Objects.isNull(looper)) looper = context.getMainLooper();
@@ -111,10 +128,10 @@ class AndroidSensorTest {
                 if (capabilities == null) ;
                 assert capabilities != null;
                 if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
-                    assertTrue(util.isMobileDataActive());
+                    Assertions.assertTrue(util.isMobileDataActive());
                 }
                 if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-                    assertTrue(util.isNetworkConnected());
+                    Assertions.assertTrue(util.isNetworkConnected());
                 }
             }
         }
@@ -122,8 +139,20 @@ class AndroidSensorTest {
     }
 
     @Test
-    void getDoesSensorExist() {
-        List<Object> sensorList = Arrays.asList(Sensor.class.getDeclaredFields());
+    public void populateSensors(){
+        sensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
+        deviceSensors = sensorManager.getSensorList(Sensor.TYPE_ALL);
+        deviceSensors.get(40).getId();
+        deviceSensors.get(40).getName();
+        String bla = deviceSensors.stream().filter(sensor -> {
+            return Objects.equals(28,sensor.getId());
+                }).toList().get(0).getStringType();
+
+    }
+    @Test
+    public void getDoesSensorExist() {
+        List<Object> sensorList = Collections.singletonList(List.of(Sensor.class).get(0));
+        
         for (int sensor:
              Arrays.stream(sensorsToTest).toArray()) {
             String sensorFeature =
@@ -159,7 +188,7 @@ class AndroidSensorTest {
     }
 
     @Test
-    void startListening() {
+    public void startListening() {
          androidSensor = new AndroidSensor(
                 context,
                 Sensor.STRING_TYPE_HEART_BEAT,
@@ -187,7 +216,7 @@ class AndroidSensorTest {
     }
 
     @Test
-    void isSensorListening(){
+    public void isSensorListening(){
         androidSensor = new AndroidSensor(
                 context,
                 Sensor.STRING_TYPE_HEART_BEAT,
@@ -214,7 +243,7 @@ class AndroidSensorTest {
         Assertions.assertTrue(androidSensor.isSensorListening());
     }
     @Test
-    void stopListening() {
+    public void stopListening() {
         androidSensor = new AndroidSensor(
                 context,
                 Sensor.STRING_TYPE_HEART_BEAT,
@@ -247,7 +276,7 @@ class AndroidSensorTest {
             threadMode = Timeout.ThreadMode.SEPARATE_THREAD
     )
     @Test
-    void onSensorChanged() {
+    public void onSensorChanged() {
         final boolean[] hasTriggered = {false};
         androidSensor = new AndroidSensor(
                 context,
@@ -282,7 +311,7 @@ class AndroidSensorTest {
     threadMode = Timeout.ThreadMode.SEPARATE_THREAD
     )
     @Test
-    void onAccuracyChanged() {
+    public void onAccuracyChanged() {
         final boolean[] hasTriggered = {false};
         androidSensor = new AndroidSensor(
                 context,

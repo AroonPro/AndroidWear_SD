@@ -4,26 +4,47 @@ repositories {
     google()
 }
 apply plugin: 'com.android.application'
-
+apply plugin: 'de.mannodermaus.android-junit5'
 android {
     namespace 'uk.org.openseizuredetector.aw'
-    compileSdkVersion 33
-    buildToolsVersion '30.0.3'
+    compileSdk 34
     packagingOptions {
         resources.excludes.add("META-INF/*")
+        resources.excludes.add("google/protobuf/field_mask.proto")
+
     }
     defaultConfig {
         applicationId "uk.org.openseizuredetector.aw"
         minSdk 30
-        targetSdkVersion 31
+        targetSdk 34
+        //noinspection OldTargetApi
         multiDexEnabled true
         versionCode 1
-        versionName '1.0.0e'
+        versionName '1.0.0f'
         testFunctionalTest true
         testHandleProfiling true
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-
-
+        testApplicationId 'uk.org.openseizuredetector.aw.androidWear'
+        testInstrumentationRunnerArguments useTestStorageService: 'true'
+        testInstrumentationRunnerArgument "runnerBuilder", "de.mannodermaus.junit5.AndroidJUnit5Builder"
+        // The following argument makes the Android Test Orchestrator run its
+        // "pm clear" command after each test invocation. This command ensures
+        // that the app's state is completely cleared between tests.
+        testInstrumentationRunnerArguments clearPackageData: 'true'
+    }
+    testOptions {
+        unitTests.all {
+            execution 'ANDROIDX_TEST_ORCHESTRATOR'
+            useJUnitPlatform() {// <--- this is the important part
+                includeTags("fast", "smoke & feature-a")
+                // excludeTags("slow", "ci")
+                includeEngines("junit-jupiter")
+                // excludeEngines("junit-vintage")
+            }
+            systemProperty("junit.jupiter.conditions.deactivate", "*")
+            systemProperty("junit.jupiter.extensions.autodetection.enabled", true)
+            systemProperty("junit.jupiter.testinstance.lifecycle.default", "per_class")
+        }
     }
     buildTypes {
         release {
@@ -33,27 +54,69 @@ android {
         debug {
             applicationIdSuffix = ""
             signingConfig signingConfigs.debug
+            debuggable true
+            proguardFiles getDefaultProguardFile('proguard-android.txt')
+            multiDexEnabled true
         }
         benchmark {
             signingConfig signingConfigs.debug
             matchingFallbacks = ['release']
             debuggable false
         }
+        releaseStaging {
+            debuggable true // <- add this line
+            applicationIdSuffix ".releaseStaging"
+            versionNameSuffix "-STAGING"
+            matchingFallbacks = ['release']
+        }
     }
     compileOptions {
-        targetCompatibility JavaVersion.VERSION_11
-        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.VERSION_17
     }
+    buildToolsVersion '34.0.0'
 }
+
 
 configurations {
-    all {
+    configureEach {
         exclude group: 'androidx.lifecycle', module: 'lifecycle-viewmodel-ktx'
         exclude group: 'androidx.lifecycle', module: 'jetified-lifecycle-viewmodel-ktx'
+        exclude group: 'com.google.protobuf', module: 'protobuf-javalite'
+        exclude group:'com.google.api.grpc',module:'proto-google-common-protos'
+    }
+}
+junitPlatform {
+    // Don't raise errors about incorrect configuration
+    // of JUnit 5 instrumentation tests
+    instrumentationTests {
+        integrityCheckEnabled = false
     }
 }
 
+tasks.withType(Test).configureEach { useJUnitPlatform() }
 dependencies {
+
+    implementation 'io.netty:netty-tcnative-boringssl-static:2.0.61.Final'
+    implementation 'com.google.protobuf:protobuf-java-util:4.0.0-rc-2'
+    implementation 'io.grpc:grpc-all:1.56.1'
+    androidTestUtil 'androidx.test:orchestrator:1.4.2'
+
+
+    androidTestImplementation 'androidx.test:runner:1.6.0-alpha03'
+    androidTestImplementation 'androidx.test:rules:1.6.0-alpha01'
+    // Optional -- UI testing with Espresso
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.0-alpha01'
+    // Optional -- UI testing with UI Automator
+    // debugImplementation 'androidx.test.uiautomator:uiautomator-v18:2.2.0-alpha1'
+    // Optional -- UI testing with Compose
+    androidTestImplementation 'androidx.compose.ui:ui-test-junit4-android:1.6.0-alpha01'
+
+    androidTestImplementation 'androidx.test:orchestrator:1.5.0-alpha01'
+    androidTestImplementation 'org.junit.platform:junit-platform-commons:1.10.0-RC1'
+    androidTestImplementation 'org.junit.platform:junit-platform-console:1.10.0-RC1'
+    androidTestImplementation 'org.junit.jupiter:junit-jupiter:5.10.0-RC1'
+    androidTestImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.0-RC1'
     constraints {
         implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.0") {
             because("kotlin-stdlib-jdk7 is now a part of kotlin-stdlib")
@@ -61,8 +124,17 @@ dependencies {
         implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.0") {
             because("kotlin-stdlib-jdk8 is now a part of kotlin-stdlib")
         }
+        implementation("org.jetbrains.kotlin:modules kotlin-compiler-embeddable-1.8.21")
+                {
+                    because("kotlin-compiler-embeddable is now a part of kotlin-stdlib")
+                }
+        implementation("com.google.protobuf:protobuf-javalite jetified-protobuf-java-3.21.8")
+                {
+                    because("protobuf-java is now a part of kotlin-stdlib")
+                }
     }
-    implementation 'androidx.benchmark:benchmark-macro-junit4:1.1.1'
+    //noinspection GradleDependency
+    androidTestImplementation 'androidx.benchmark:benchmark-macro-junit4:1.1.1'
     implementation "androidx.multidex:multidex:2.0.1"
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation 'com.github.wendykierp:JTransforms:3.1'
@@ -71,22 +143,22 @@ dependencies {
     implementation compileOnly('com.google.android.wearable:wearable:2.9.0')
     implementation 'androidx.health:health-services-client:1.0.0-beta03'
     implementation 'com.google.android.libraries.healthdata:health-data-api:1.1.0-alpha01'
+    //noinspection GradleDependency
     implementation 'androidx.health.connect:connect-client:1.0.0-alpha11'
     implementation 'com.google.android.gms:play-services-fitness:21.1.0'
-    implementation 'com.google.android.gms:play-services-auth:20.5.0'
+    implementation 'com.google.android.gms:play-services-auth:20.6.0'
     implementation 'io.reactivex.rxjava3:rxjava:3.1.6'
     implementation 'io.reactivex.rxjava3:rxandroid:3.0.2'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.core:core-ktx:1.10.1'
-    implementation "androidx.fragment:fragment-ktx:1.5.7"
+    implementation 'androidx.fragment:fragment-ktx:1.6.0'
 
 
     // Wear
     implementation 'androidx.wear:wear:1.2.0'
     // Health Services
-    implementation 'androidx.health:health-services-client:1.0.0-beta03'
     // Used to bridge between Futures and coroutines
-    implementation 'com.google.guava:guava:31.1-jre'
+    //implementation 'com.google.guava:guava:32.1.1-jre'
     implementation "androidx.concurrent:concurrent-futures-ktx:1.1.0"
 
     // Lifecycle
@@ -107,9 +179,6 @@ dependencies {
     implementation 'androidx.work:work-multiprocess:2.8.1'
 
 
-    androidTestImplementation 'androidx.test.ext:junit:1.2.0-alpha01'
-    androidTestImplementation 'androidx.test:runner:1.3.0'
-    androidTestImplementation 'junit:junit:4.13.2'
     // Set this dependency if you want to use Mockito
 //    testImplementation 'org.mockito:mockito-core:5.3.1'
 //    // Set this dependency if you want to use Hamcrest matching
@@ -120,20 +189,13 @@ dependencies {
 //    testImplementation 'androidx.test.ext:junit:1.2.0-alpha01'
 //    testImplementation 'androidx.test:monitor:1.7.0-alpha01'
 
-    androidTestImplementation 'junit:junit:4.13.2'
-    // Set this dependency if you want to use Mockito
-    androidTestImplementation 'org.mockito:mockito-core:5.3.1'
-    // Set this dependency if you want to use Hamcrest matching
-    androidTestImplementation 'org.hamcrest:hamcrest-library:2.2'
-    androidTestImplementation 'org.robolectric:robolectric:4.10'
-    androidTestImplementation 'androidx.test:core:1.4.0'
-    androidTestImplementation 'androidx.test:rules:1.3.0'
-    androidTestImplementation 'androidx.test.ext:junit:1.2.0-alpha01'
-    androidTestImplementation 'androidx.test:monitor:1.5.0'
-    androidTestImplementation 'org.junit.jupiter:junit-jupiter'
-    androidTestImplementation 'org.junit.jupiter:junit-jupiter:5.10.0-M1'
-    debugImplementation 'androidx.fragment:fragment-testing-manifest:1.6.0-rc01'
-    androidTestImplementation 'androidx.fragment:fragment-testing:1.6.0-rc01'
 
+
+    debugImplementation 'androidx.fragment:fragment-testing-manifest:1.6.0'
+    androidTestImplementation 'androidx.fragment:fragment-testing:1.6.0'
+    androidTestImplementation 'org.junit.platform:junit-platform-gradle-plugin:1.2.0'
+    androidTestImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.0-RC1'
+    androidTestImplementation("de.mannodermaus.junit5:android-test-core:1.3.0")
+    androidTestRuntimeOnly("de.mannodermaus.junit5:android-test-runner:1.3.0")
 }
 

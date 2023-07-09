@@ -24,10 +24,6 @@ import android.preference.PreferenceManager;
 import android.util.Log;
 
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.LargeTest;
-import androidx.test.internal.runner.junit4.AndroidJUnit4ClassRunner;
-import androidx.test.runner.AndroidJUnitRunner;
 
 import org.junit.After;
 import org.junit.Before;
@@ -35,11 +31,6 @@ import org.junit.FixMethodOrder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.MethodSorters;
-import org.robolectric.Robolectric;
-import org.robolectric.RobolectricTestRunner;
-import org.robolectric.android.controller.ServiceController;
-import androidx.core.net.ConnectivityManagerCompat;
-import androidx.test.filters.MediumTest;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -58,9 +49,8 @@ import java.util.Random;
  *
  * as per SDK_INT 26
  */
-@LargeTest
+
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
-@RunWith(AndroidJUnit4.class)
 public class OsdInstrumentalTest {
      Context context;
      Application application;
@@ -69,7 +59,7 @@ public class OsdInstrumentalTest {
      OsdUtil util;
      AWSdService aWsdService;
      Intent sdServerIntent;
-     ServiceController<AWSdService> controller;
+     //ServiceController<AWSdService> controller;
      SdServiceConnection sdServiceConnection;
 
     @Before
@@ -112,9 +102,9 @@ public class OsdInstrumentalTest {
             Intent intent=sdServerIntent;
             intent.putExtra(Constants.GLOBAL_CONSTANTS.startId,startId);
             intent.setData(Constants.GLOBAL_CONSTANTS.mStartUri);
-            controller = Robolectric
-                    .buildService(AWSdService.class,intent);
-            aWsdService = controller.create().get();
+            //controller = Robolectric
+            //        .buildService(AWSdService.class,intent);
+            //aWsdService = controller.create().get();
             //test basing up on Phone client.
             SharedPreferences SP = PreferenceManager
                     .getDefaultSharedPreferences(context);
@@ -147,7 +137,7 @@ public class OsdInstrumentalTest {
                     .putString("O2SatThreshMin","75")
                     .apply();
             util.startServer();
-            controller.startCommand(Service.START_FLAG_REDELIVERY,startId);
+            //controller.startCommand(Service.START_FLAG_REDELIVERY,startId);
             Thread.sleep(9000);
             testIsServerRunning();
         }

@@ -7,16 +7,19 @@ import android.os.Handler;
 import android.os.Looper;
 
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.Extension;
 import org.junit.runner.RunWith;
-import org.robolectric.android.controller.ServiceController;
 
 
-@RunWith(AndroidJUnit4.class)
+@ExtendWith(Extension.class)
 public class TestSensorModule {
+    public TestSensorModule(){
+
+    }
     Context context;
     Application application;
     Looper looper;
@@ -24,7 +27,7 @@ public class TestSensorModule {
     OsdUtil util;
     AWSdService aWsdService;
     Intent sdServerIntent;
-    ServiceController<AWSdService> controller;
+    //ServiceController<AWSdService> controller;
     SdServiceConnection sdServiceConnection;
 
     @Before
