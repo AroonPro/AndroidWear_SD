@@ -982,7 +982,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                         if (this.checkSelfPermission(Manifest.permission.BODY_SENSORS) != PackageManager.PERMISSION_GRANTED) {
-                            requestPermissions(new String[]{Manifest.permission.BODY_SENSORS}, 1);
+                            //requestPermissions(new String[]{Manifest.permission.BODY_SENSORS}, 1);
                             ActivityCompat.requestPermissions(getActivity(this),
                                     new String[]{Manifest.permission.BODY_SENSORS},
                                     Constants.GLOBAL_CONSTANTS.PERMISSION_REQUEST_BODY_SENSORS);

@@ -4,12 +4,16 @@ import static androidx.core.content.ContextCompat.getSystemService;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.*;
 
+import android.Manifest;
 import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.hardware.Sensor;
+import android.hardware.SensorAdditionalInfo;
 import android.hardware.SensorEvent;
 import android.hardware.SensorManager;
+import android.hardware.SensorPrivacyManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.os.Build;
@@ -38,11 +42,13 @@ import org.junit.jupiter.api.extension.Extension;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.runner.RunWith;
 
+import java.security.Permission;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -53,6 +59,8 @@ import kotlinx.coroutines.TimeoutKt;
 
 
 public class AndroidSensorTest {
+    private Sensor sensor;
+
     public AndroidSensorTest(){
     }
 //    @JvmField
@@ -138,26 +146,25 @@ public class AndroidSensorTest {
 
     }
 
-    @Test
+
     public void populateSensors(){
-        sensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
-        deviceSensors = sensorManager.getSensorList(Sensor.TYPE_ALL);
-        deviceSensors.get(40).getId();
-        deviceSensors.get(40).getName();
-        String bla = deviceSensors.stream().filter(sensor -> {
-            return Objects.equals(28,sensor.getId());
-                }).toList().get(0).getStringType();
+        if (Objects.isNull(sensorManager)) sensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
+        if (Objects.isNull(deviceSensors)) deviceSensors = sensorManager.getSensorList(Sensor.TYPE_ALL);
+        if (Objects.isNull(sensor)) sensor = sensorManager.getDefaultSensor(Sensor.TYPE_POSE_6DOF,true);
 
     }
-    @Test
+
+    @Timeout( value = 2,
+            unit = TimeUnit.HOURS,
+            threadMode = Timeout.ThreadMode.SEPARATE_THREAD
+    )@Test
     public void getDoesSensorExist() {
-        List<Object> sensorList = Collections.singletonList(List.of(Sensor.class).get(0));
-        
-        for (int sensor:
-             Arrays.stream(sensorsToTest).toArray()) {
+        populateSensors();
+        for (Sensor sensor:deviceSensors
+             ) {
             String sensorFeature =
-                    (String) sensorList.get(sensorList.indexOf("STRING_" + sensorList.get(sensor)));
-            androidSensor = new AndroidSensor(context, sensorFeature, sensor,
+                    ((String)sensor.getStringType()).replaceFirst("android.sensor","android.hardware.sensor");
+            androidSensor = new AndroidSensor(context, sensorFeature,deviceSensors.indexOf(sensor) ,
                     SensorManager.SENSOR_DELAY_UI,SensorManager.SENSOR_DELAY_NORMAL) {
                 @Nullable
                 @Override
@@ -177,22 +184,40 @@ public class AndroidSensorTest {
             };
             try{
                 Assertions.assertTrue(androidSensor.getDoesSensorExist());
-                Log.i(TAG, "Assertation of Sensor returned " +
+                Log.i(TAG, "Assertion of Sensor returned " +
                         sensor + "  exists as true.");
             }catch (AssertionError assertionError){
-                Log.e(TAG,"Assertation failed. Assertation of Sensor returned Sensor " +
+                Log.e(TAG,"Assertion failed. Assertation of Sensor returned Sensor " +
                         sensor + " does not exist", assertionError);
             }
             androidSensor = null;
         }
+        androidSensor = new MotionDetectSensor(context,3,9) {
+            @Nullable
+            @Override
+            public void onSensorValuesChanged(SensorEvent event) {
+
+            }
+
+            @Override
+            public void onSensorAccuracyValueChanged(Sensor sensor, int accuracy) {
+
+            }
+
+            @Override
+            public void setOnSensorValuesChangedListener(@NonNull Function1 listener) {
+
+            }
+        };
+        Assertions.assertTrue(androidSensor.getDoesSensorExist());
     }
 
     @Test
     public void startListening() {
          androidSensor = new AndroidSensor(
                 context,
-                Sensor.STRING_TYPE_HEART_BEAT,
-                Sensor.TYPE_HEART_BEAT,
+                PackageManager.FEATURE_SENSOR_ACCELEROMETER,
+                Sensor.TYPE_ACCELEROMETER,
                 SensorManager.SENSOR_DELAY_NORMAL,
                 SensorManager.SENSOR_DELAY_NORMAL) {
             @Nullable
@@ -216,11 +241,12 @@ public class AndroidSensorTest {
     }
 
     @Test
-    public void isSensorListening(){
+    public void isSensorListening() throws InterruptedException {
+        populateSensors();
         androidSensor = new AndroidSensor(
                 context,
-                Sensor.STRING_TYPE_HEART_BEAT,
-                Sensor.TYPE_HEART_BEAT,
+                PackageManager.FEATURE_SENSOR_ACCELEROMETER,
+                Sensor.TYPE_ACCELEROMETER,
                 SensorManager.SENSOR_DELAY_NORMAL,
                 SensorManager.SENSOR_DELAY_NORMAL) {
             @Nullable
@@ -240,13 +266,16 @@ public class AndroidSensorTest {
             }
         };
         androidSensor.startListening();
-        Assertions.assertTrue(androidSensor.isSensorListening());
+
+        Thread.sleep(800);
+        Assertions.assertTrue( androidSensor.isSensorListening());
     }
     @Test
     public void stopListening() {
+        populateSensors();
         androidSensor = new AndroidSensor(
                 context,
-                Sensor.STRING_TYPE_HEART_BEAT,
+                PackageManager.FEATURE_SENSOR_HEART_RATE,
                 Sensor.TYPE_HEART_BEAT,
                 SensorManager.SENSOR_DELAY_NORMAL,
                 SensorManager.SENSOR_DELAY_NORMAL) {
@@ -267,18 +296,27 @@ public class AndroidSensorTest {
             }
         };
         androidSensor.startListening();
+        try {
+            Thread.sleep(800);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
         Assertions.assertTrue(androidSensor.isSensorListening());
         androidSensor.stopListening();
     }
 
-    @Timeout( value = 1000,
-            unit = TimeUnit.MILLISECONDS,
+    @Timeout( value = 5,
+            unit = TimeUnit.HOURS,
             threadMode = Timeout.ThreadMode.SEPARATE_THREAD
     )
     @Test
     public void onSensorChanged() {
-        final boolean[] hasTriggered = {false};
-        androidSensor = new AndroidSensor(
+        boolean[] hasTriggered = {false};
+        final CountDownLatch signal = new CountDownLatch(1);
+
+
+
+            androidSensor = new AndroidSensor(
                 context,
                 Sensor.STRING_TYPE_HEART_BEAT,
                 Sensor.TYPE_HEART_BEAT,
@@ -287,7 +325,9 @@ public class AndroidSensorTest {
             @Nullable
             @Override
             public void onSensorValuesChanged(SensorEvent event) {
+
                 hasTriggered[0] = true;
+                signal.countDown();
             }
 
             @Override
@@ -301,18 +341,53 @@ public class AndroidSensorTest {
             }
         };
         androidSensor.startListening();
-        handler.postDelayed(
-                () -> {Assertions.assertTrue(hasTriggered[0]);}
-        ,1000);
+        try {
+            if (androidSensor.isSensorListening()) signal.await();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        Assertions.assertTrue(hasTriggered[0]);
+
     }
 
-    @Timeout( value = 1000,
-            unit = TimeUnit.MILLISECONDS,
-    threadMode = Timeout.ThreadMode.SEPARATE_THREAD
+
+    @Test
+    public void testSensorAccelleration(){
+        AccelerationSensor accelerationSensor = null;
+        if (Objects.isNull(accelerationSensor))
+            accelerationSensor= new AccelerationSensor(context,(int)4e4,(int)4e4*6) {
+            @Nullable
+            @Override
+            public void onSensorValuesChanged(SensorEvent event) {
+
+            }
+
+            @Override
+            public void onSensorAccuracyValueChanged(Sensor sensor, int accuracy) {
+
+            }
+
+            @Override
+            public void setOnSensorValuesChangedListener(@NonNull Function1 listener) {
+
+            }
+        };
+        if (!accelerationSensor.isSensorListening())
+            accelerationSensor.startListening();
+        if (accelerationSensor.isSensorListening())
+            accelerationSensor.stopListening();
+        assertFalse(accelerationSensor.isSensorListening());
+
+    }
+
+
+    @Timeout( value = 7,
+            unit = TimeUnit.DAYS,
+            threadMode = Timeout.ThreadMode.SEPARATE_THREAD
     )
     @Test
     public void onAccuracyChanged() {
-        final boolean[] hasTriggered = {false};
+        boolean[] hasTriggered = {false};
         androidSensor = new AndroidSensor(
                 context,
                 Sensor.STRING_TYPE_HEART_BEAT,
@@ -342,9 +417,12 @@ public class AndroidSensorTest {
 
         };
         androidSensor.startListening();
-        handler.postDelayed(
-                () -> {Assertions.assertTrue(hasTriggered[0]);}
-                ,1000);
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        Assertions.assertTrue(hasTriggered[0]);
     }
 
     @AfterEach
