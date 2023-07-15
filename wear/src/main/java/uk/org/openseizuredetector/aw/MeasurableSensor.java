@@ -16,9 +16,9 @@ public interface MeasurableSensor {
 
     abstract void onSensorAccuracyValueChanged(Sensor sensor, int accuracy);
 
-
     boolean doesSensorExist = false;
     abstract boolean getDoesSensorExist();
+    abstract boolean getHasSensorPermissionGranted();
     abstract boolean isSensorListening();
     abstract void startListening();
     abstract void stopListening();
