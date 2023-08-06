@@ -7,6 +7,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.util.Log;
 
 import androidx.core.app.ActivityCompat;
 
@@ -69,24 +70,31 @@ AndroidSensor(Context context,
     }
 
     private void initialiseSensorManager()
-    {    sensorManager = (SensorManager) mContext.getSystemService(Context.SENSOR_SERVICE);
+    {   sensorManager = (SensorManager) mContext.getSystemService(Context.SENSOR_SERVICE);
         isSensorManagerInitialised = sensorManager != null;
         assert sensorManager != null;
         availableSensors = sensorManager.getSensorList(Sensor.TYPE_ALL);
-
+        Log.d(this.getClass().getName(),"Filled availableSensors");
     }
 
     @Override
     public boolean getDoesSensorExist() {
+        boolean featureMatches = false;
         if (!isSensorManagerInitialised)
             return false;
+        for (Sensor sensor1: availableSensors){
+            if (sensor1.getStringType().equals(mSensorFeature)) {
+                featureMatches = true;
+                break;
+            }
+        }
         return mContext.getPackageManager().hasSystemFeature(mSensorFeature) ||
-                availableSensors.stream().anyMatch(sensor1 -> sensor1.getStringType().equals(mSensorFeature));
+                featureMatches;
     }
 
 
     private boolean hasNoPermission(String permission){
-        return mContext.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED;
+        return mContext.checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED;
     }
 
 
@@ -94,9 +102,11 @@ AndroidSensor(Context context,
     public boolean getHasSensorPermissionGranted(){
         boolean returnValue = true;
         for (String permission : mSensorPermissions){
-            if (hasNoPermission(permission)) {
-                returnValue = false;
-                break;
+            if (!permission.isEmpty()){
+                if (hasNoPermission(permission)) {
+                    returnValue = false;
+                    break;
+                }
             }
 
         }
@@ -116,19 +126,25 @@ AndroidSensor(Context context,
         if (!getDoesSensorExist() || isSensorListening){
             return;
         }
-        if (!isSensorManagerInitialised&&sensor == null){
+        if (!isSensorManagerInitialised)
+                return;
+        if (Objects.isNull(sensor)){
 
             sensor = sensorManager.getDefaultSensor(mSensorType);
         }
         if (Objects.nonNull(sensor)){
-            if (!getHasSensorPermissionGranted())
+            if (!getHasSensorPermissionGranted() && mContext instanceof Activity)
             {
                 for (String permission: mSensorPermissions){
-                    if (hasNoPermission(permission))
-                        ActivityCompat.requestPermissions((Activity) mContext,new String[] {permission},0);
+                    if (!permission.isEmpty()){
+                        if (hasNoPermission(permission) ) {
+                            ActivityCompat.requestPermissions((Activity) mContext, new String[]{permission}, 0);
+                        }
+                    }
                 }
             }
             isSensorListening = sensorManager.registerListener(this,sensor, mSensorSamplingPeriodUs, mSensorMaxReportLatencyUs);
+            Log.d(this.getClass().getName(), "Exiting startListening() with status: " + isSensorListening);
         }
     }
 
@@ -143,8 +159,10 @@ AndroidSensor(Context context,
             successUnRegister = true;
         }
         finally {
-            if (successUnRegister)
+            if (successUnRegister) {
                 isSensorListening = false;
+
+            }
         }
     }
 
@@ -177,5 +195,28 @@ AndroidSensor(Context context,
         if (sensor.getType() == mSensorType){
             onSensorAccuracyValueChanged(sensor,accuracy);
         }
+    }
+
+    /**
+     * @throws Throwable 
+     */
+    @Override
+    protected void finalize() throws Throwable {
+        if (Objects.nonNull(sensor))
+        {
+            if (isSensorListening())
+                stopListening();
+            sensor = null;
+        }
+        if (Objects.nonNull(mContext)){
+            mContext = null;
+        }
+        if (Objects.nonNull(sensorManager)) {
+            sensorManager.flush(this);
+            sensorManager = null;
+        }if (Objects.nonNull(availableSensors)) {
+            availableSensors = null;
+        }
+        super.finalize();
     }
 }

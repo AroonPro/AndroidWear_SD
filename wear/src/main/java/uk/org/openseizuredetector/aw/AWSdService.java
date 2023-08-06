@@ -70,6 +70,7 @@ import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import io.reactivex.rxjava3.core.Observable;
@@ -152,7 +153,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     private int mAlarmTime = 3;
     private double mHeartPercentThresh = 1.3;
     private int alarmCount = 0;
-    private int curHeart = 0;
+    private long lastAlarmTimeInMilis;
     private int avgHeart = 0;
     private float batteryPct = -1f;
     public int serverBatteryPct = -1;
@@ -187,6 +188,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     private Intent applicationIntent = null;
     private Intent intentFromOnStart;
     private boolean connectedConnectionUpdates;
+    private SamsungWearSpO2Sensor samsungWearSpO2Sensor;
 
     public BroadcastReceiver connectionUpdateReceiver = new BroadcastReceiver() {
         @Override
@@ -996,6 +998,28 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                         }
                     }
 
+                    if (Objects.isNull(samsungWearSpO2Sensor))
+                        samsungWearSpO2Sensor = new SamsungWearSpO2Sensor((Context) this,
+                                (int) Constants.GLOBAL_CONSTANTS.getMaxHeartRefreshRate,
+                                (int) (Constants.GLOBAL_CONSTANTS.getMaxHeartRefreshRate * 4)
+                                ) {
+                            @Nullable
+                            @Override
+                            public void onSensorValuesChanged(SensorEvent event) {
+                                onSensorChanged(event);
+                            }
+
+                            @Override
+                            public void onSensorAccuracyValueChanged(Sensor sensor, int accuracy) {
+
+                            }
+
+                            @Override
+                            public void setOnSensorValuesChangedListener(@NonNull Function1 listener) {
+
+                            }
+                        };
+
                     if (Objects.isNull(heartBeatSensor))
                         heartBeatSensor = new HeartBeatSensor((Context) this,
                                 (int) Constants.GLOBAL_CONSTANTS.getMaxHeartRefreshRate,
@@ -1003,7 +1027,8 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                             @Nullable
                             @Override
                             public void onSensorValuesChanged(SensorEvent event) {
-                                onSensorChanged(event);
+                                mSdData.mO2Sat = event.values[0];
+                                checkAlarm();
                             }
 
                             @Override
@@ -1016,6 +1041,8 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
 
                             }
                         };
+                    if (!samsungWearSpO2Sensor.isSensorListening())
+                        samsungWearSpO2Sensor.startListening();
                     mSensorManager = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
                     mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
                     mSensorManager.registerListener(this, mSensor, (int) mSampleTimeUs, (int) mSampleTimeUs * 3, mHandler);
@@ -1068,6 +1095,9 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             mSensorManager.unregisterListener(this, mProximitySensor);
         if (Objects.nonNull(mOffBodySensor)&&!inOffBodyChangeEvent)
             mSensorManager.unregisterListener(this,mOffBodySensor);
+        if (Objects.nonNull(samsungWearSpO2Sensor))
+            if (samsungWearSpO2Sensor.isSensorListening())
+                samsungWearSpO2Sensor.stopListening();
         sensorsActive = false;
     }
 
@@ -1427,7 +1457,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                             }
                             if (mSdData.mNsamp >= mSdDataSettings.mDefaultSampleCount) {
                                 Log.v(TAG, "onSensorChanged(): Collected Data = final TimeStamp=" + event.timestamp + ", initial TimeStamp=" + mStartTs);
-                                mSdData.dT = 1.0e-9 * (event.timestamp - mStartTs);
+                                mSdData.dT = TimeUnit.MILLISECONDS.toSeconds( (event.timestamp - mStartTs));
                                 mCurrentMaxSampleCount = mSdData.mNsamp;
                                 mSdData.mSampleFreq = (int) (mSdData.mNsamp / mSdData.dT);
                                 mSdData.haveSettings = true;
@@ -1519,6 +1549,13 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                         Log.d(TAG, "onSensorChanged(): got " + event.sensor.getType() + " as typeid of sensor and string: " + event.sensor.getName() + "and its value(s) " + event.values);
 
                     }
+                    else if (event.sensor.getType() == Constants.GLOBAL_CONSTANTS.COM_SAMSUNG_WEAR_SENSOR_CONTINUOUS_SPO2) {
+                        for ( double value :event.values) {
+                            Log.d(TAG, "SpO2 onSensor Values Received: " + value);
+                            mSdData.mO2Sat = value;
+                            sendMessage(Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_DATA, mSdData.toDataString(true));
+                        }
+                    }
                     else if (true && (event.sensor.getType() != Sensor.TYPE_ACCELEROMETER && event.sensor.getType() != Sensor.TYPE_HEART_RATE))
                         Log.d(TAG,"onSensorChanged(): got "+event.sensor.getType() + " as typeid of sensor and string: " + event.sensor.getName() + "and its value(s) " + event.values);
                     else if (event.sensor.isWakeUpSensor())
@@ -1548,8 +1585,8 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
         //mSdData.mHRAlarmActive = (mSdData.alarmState != 6 && mSdData.alarmState != 10);
 
         boolean inAlarm = false;
-        Long alarmHoldOfTime = (mSdData.alarmTime + (mAlarmTime * 25000L));
-        if (Calendar.getInstance().getTimeInMillis() > alarmHoldOfTime) {
+        Long alarmHoldOfTime = (mSdData.alarmTime - (TimeUnit.MINUTES.toMillis(mAlarmTime)));
+        if (Calendar.getInstance().getTimeInMillis() > mSdData.alarmTime ) {
             if (mSdData.roiPower > mSdData.alarmThresh && mSdData.roiRatio > mSdData.alarmRatioThresh) {
                 inAlarm = true;
                 mAlarmTime = (int) mSdData.alarmTime;
@@ -1599,8 +1636,8 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             }
         }
         if (mSdData.alarmState == 1 || mSdData.alarmState == 2) {
-            Intent intent = new Intent(this.getApplicationContext(), StartUpActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            Intent intent = new Intent(this, StartUpActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK );
             this.startActivity(intent);
         }
 

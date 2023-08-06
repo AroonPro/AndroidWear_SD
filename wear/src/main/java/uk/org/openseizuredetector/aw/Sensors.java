@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.os.Build;
+import android.util.Log;
 
 
 abstract class AccelerationSensor extends AndroidSensor {
@@ -74,12 +75,10 @@ abstract class SamsungWearSpO2Sensor extends AndroidSensor {
                         ""
                 },
 
-                69678, // Samsung SPO2
+                Constants.GLOBAL_CONSTANTS.COM_SAMSUNG_WEAR_SENSOR_CONTINUOUS_SPO2, // Samsung SPO2
                 sensorSamplingPeriodUs,
                 sensorDefaultMeasurementReportLatency);
     }
-
-
 
 }
 

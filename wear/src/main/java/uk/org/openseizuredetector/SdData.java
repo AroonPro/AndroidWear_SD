@@ -34,6 +34,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 import uk.org.openseizuredetector.aw.Constants;
 
@@ -187,7 +188,7 @@ public class SdData<T> implements Parcelable {
                 mHRThreshMax = jo.optDouble("hrThreshMax");
                 mHRThreshMin = jo.optDouble("hrThreshMin");
                 phoneName = jo.optString("phoneName");
-                dT = analysisPeriod * 1e-4;
+                dT = TimeUnit.SECONDS.toMicros(analysisPeriod);//FIXME
 
             }
             if (Constants.GLOBAL_CONSTANTS.dataTypeRaw.equals(mDataType)) {
@@ -266,13 +267,13 @@ public class SdData<T> implements Parcelable {
                 rawArr.put(rawData[i]);
             }
             //Log.v(TAG,"rawData[0]="+rawData[0]+", rawArr[0]="+rawArr.getDouble(0));
-            jsonObj.put("rawData", rawArr);
+            jsonObj.put("data", rawArr);
 
             raw3DArr = new JSONArray();
             for (int i = 0; i < rawData3D.length; i++) {
                 raw3DArr.put(rawData3D[i]);
             }
-            jsonObj.put("rawData3D", raw3DArr);
+            jsonObj.put("data3D", raw3DArr);
 
             retval = jsonObj.toString();
             Log.v(TAG, "retval rawData=" + retval);

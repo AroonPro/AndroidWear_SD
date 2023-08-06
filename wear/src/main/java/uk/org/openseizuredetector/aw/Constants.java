@@ -7,6 +7,7 @@ public class Constants {
         public final int ALARMS_OFF = 6;
         public final int ALARMS_ON = 0;
         public static final int PERMISSION_REQUEST_BODY_SENSORS = 16;
+        public static final int COM_SAMSUNG_WEAR_SENSOR_CONTINUOUS_SPO2 = 69678;
         static final Uri CAPABILITY_WEAR_APP = Uri.parse("wear://");
         public final String wearableAppCheckPayload = "AppOpenWearable";
         public final String wearableAppCheckPayloadReturnACK = "AppOpenWearableACK";

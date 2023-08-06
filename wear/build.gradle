@@ -20,7 +20,7 @@ android {
         //noinspection OldTargetApi
         multiDexEnabled true
         versionCode 1
-        versionName '1.0.0f'
+        versionName '1.0.0g'
         testFunctionalTest true
         testHandleProfiling true
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -79,6 +79,15 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
     }
     buildToolsVersion '34.0.0'
+    flavorDimensions 'Test', 'Debug'
+    productFlavors {
+        Test {
+            dimension 'Test'
+        }
+        DebugMode {
+            dimension 'Debug'
+        }
+    }
 }
 
 

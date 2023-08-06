@@ -1,7 +1,6 @@
 package uk.org.openseizuredetector.aw;
 
 import static org.junit.Assert.assertTrue;
-import static org.junit.jupiter.api.Assertions.*;
 
 import android.app.Application;
 import android.content.Context;
@@ -21,8 +20,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.test.core.app.ApplicationProvider;
 
-import com.google.android.gms.tasks.Task;
-
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,13 +34,12 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import io.netty.internal.tcnative.AsyncTask;
 import kotlin.jvm.functions.Function1;
 
 
 public class AndroidSensorTest {
-    private Sensor sensor;
-    private CyclicBarrier cyclicBarrier = new CyclicBarrier(1);
+    private Sensor testingSensor;
+    private final CyclicBarrier cyclicBarrier = new CyclicBarrier(1);
 
     public AndroidSensorTest(){
     }
@@ -134,8 +130,7 @@ public class AndroidSensorTest {
     public void populateSensors(){
         if (Objects.isNull(sensorManager)) sensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
         if (Objects.isNull(deviceSensors)) deviceSensors = sensorManager.getSensorList(Sensor.TYPE_ALL);
-        if (Objects.isNull(sensor)) sensor = sensorManager.getDefaultSensor(Sensor.TYPE_POSE_6DOF,true);
-        if (Objects.isNull(cyclicBarrier)) cyclicBarrier = new CyclicBarrier(0);
+        if (Objects.isNull(testingSensor)) testingSensor = sensorManager.getDefaultSensor(Sensor.TYPE_POSE_6DOF,true);
     }
 
     @Timeout( value = 2,
@@ -147,7 +142,7 @@ public class AndroidSensorTest {
         for (Sensor sensor:deviceSensors
              ) {
             String sensorFeature =
-                    ((String)sensor.getStringType()).replaceFirst("android.sensor","android.hardware.sensor");
+                    (sensor.getStringType()).replaceFirst("android.sensor","android.hardware.sensor");
             androidSensor = new AndroidSensor(context, sensorFeature,deviceSensors.indexOf(sensor) ,
                     SensorManager.SENSOR_DELAY_UI,SensorManager.SENSOR_DELAY_NORMAL) {
                 @Nullable
@@ -386,7 +381,57 @@ public class AndroidSensorTest {
 
     }
 
+    @Timeout(value=10 ,
+            unit = TimeUnit.MINUTES,
+            threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @Test
+    void testSamsungWearSpO2Sensor(){
 
+        cyclicBarrier.reset();
+        long startTime = System.currentTimeMillis();
+        SamsungWearSpO2Sensor samsungWearSpO2Sensor = new SamsungWearSpO2Sensor(
+                context,
+                (int) TimeUnit.MILLISECONDS.toMicros((long)Constants.GLOBAL_CONSTANTS.getMaxHeartRefreshRate),
+                (int) TimeUnit.MILLISECONDS.toMicros((long)Constants.GLOBAL_CONSTANTS.getMaxHeartRefreshRate * 4)
+        ) {
+            @Nullable
+            @Override
+            public void onSensorValuesChanged(SensorEvent event) {
+                for ( double value :event.values)
+                {
+                    Log.d(TAG , "SpO2 onSensor Values Received: " + value  ) ;
+                    if (System.currentTimeMillis() - (TimeUnit.MINUTES.toMillis(9) +
+                            TimeUnit.SECONDS.toMillis(59)) >
+                        startTime) {
+                         if (cyclicBarrier.getNumberWaiting() > 0 && !cyclicBarrier.isBroken()) {
+                             cyclicBarrier.notify();
+                             cyclicBarrier.reset();
+                         }
+                    }
+                }
+            }
+
+            @Override
+            public void onSensorAccuracyValueChanged(Sensor sensor, int accuracy) {
+
+            }
+
+            @Override
+            public void setOnSensorValuesChangedListener(@NonNull Function1 listener) {
+
+            }
+        };
+        try {
+            Assertions.assertNotNull(samsungWearSpO2Sensor);
+            Assertions.assertFalse(samsungWearSpO2Sensor.isSensorListening());
+            samsungWearSpO2Sensor.startListening();
+            cyclicBarrier.reset();
+            cyclicBarrier.await(10,TimeUnit.MINUTES);
+            samsungWearSpO2Sensor.stopListening();
+        } catch (InterruptedException | BrokenBarrierException | TimeoutException e) {
+            throw new RuntimeException(e);
+        }
+    }
     @Timeout( value = 7,
             unit = TimeUnit.DAYS,
             threadMode = Timeout.ThreadMode.SEPARATE_THREAD
@@ -394,7 +439,6 @@ public class AndroidSensorTest {
     @Test
     public void onAccuracyChanged() {
         boolean[] hasTriggered = {false};
-        CountDownLatch signal = new CountDownLatch(1);
         androidSensor = new AndroidSensor(
                 context,
                 Sensor.STRING_TYPE_HEART_BEAT,
@@ -433,6 +477,8 @@ public class AndroidSensorTest {
         };
         try {
             handler.post(() ->androidSensor.startListening());
+            cyclicBarrier.reset();
+            Log.i(TAG,"Initiating await for cyclic barrier");
             cyclicBarrier.await(10,TimeUnit.MINUTES);
         } catch (InterruptedException | BrokenBarrierException | TimeoutException e) {
             throw new RuntimeException(e);
@@ -453,5 +499,17 @@ public class AndroidSensorTest {
         handler = null;
         looper = null;
         context = null;
+    }
+
+    class CyclicBarrierObject implements Runnable{
+
+        /**
+         *
+         */
+        @Override
+        public void run() {
+
+
+        }
     }
 }

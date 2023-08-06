@@ -87,6 +87,7 @@ public class StartUpActivity extends AppCompatActivity
     private UUID currentUuID;
     private Constraints defaultConstraints = null;
     private Disposable disposable;
+    private long lastAlarmTimeInMilis;
 
     public static <T extends Parcelable> T unmarshall(byte[] bytes, Parcelable.Creator<T> creator) {
         Parcel parcel = unmarshall(bytes);
@@ -612,6 +613,8 @@ public class StartUpActivity extends AppCompatActivity
                         if (mConnection.mAWSdService.mSdData == null)
                             mTextView.setText(textViewBuilder.append(getResources().getString(R.string.hello_round)).append(": mAWSdService created, but mSdData NOT").toString());
                         else {
+                            String mO2viewString;
+                            mO2viewString =(mSdData.mO2Sat > 0 && mSdData.mO2SatAlarmActive) ? " %O2: "+ mSdData.mO2Sat :  "%O2 n/a";
                             //Log.v(TAG, "updateUiTask() - " +mConnection.mAWSdService.mNSamp);
                             if (mTextView != null)
                                 mTextView.setText(textViewBuilder.append(getResources().getString(R.string.hello_round))
@@ -625,6 +628,7 @@ public class StartUpActivity extends AppCompatActivity
                                         .append(mConnection.mAWSdService.mSdData.batteryPc)
                                         .append(" 📱 \uD83D\uDD0B% : ")
                                         .append(mConnection.mAWSdService.serverBatteryPct)
+                                        .append(mO2viewString)
                                         .toString());
 
                             if (mAlarmText != null && mConnection.mAWSdService.mSdData != null) {
