@@ -48,6 +48,7 @@ public class Constants {
         public final double maxHeartRefreshRate = 300d;//measured in , 60bpm equals 1Hz
         //equals 1/s seconds = 400ms  , 300bpm is unlikely but will translate to 300Hz 1/300
         public final double getMaxHeartRefreshRate = (1d / (maxHeartRefreshRate / 60d)) * 1000;
+        public final boolean debugStartAllowed = true;
     }
 
     public interface ACTION {
@@ -56,6 +57,7 @@ public class Constants {
         public static String BATTERYUPDATE_ACTION = "uk.org.openseizuredetector.onBatteryUpdate";
         public static String BIND_ACTION = "uk.org.openseizuredetector.bindAction";
         public static String BROADCAST_TO_WEARRECEIVER = "uk.org.openseizuredetector.aw.broadcastToWearReceiver";
+        public static String WEARRECEIVER_FOREGROUND_STARTED = "uk.org.openseizuredetector.aw.foregroundServiceWearReceiverStarted";
         public static String BROADCAST_TO_SDSERVER = "uk.org.openseizuredetector.broadcastTosdServer";
         public static String CONNECTIONUPDATE_ACTION = "uk.org.openseizuredetector.onConnectionUpdate";
         public static String PUSH_SETTINGS_ACTION = "uk.org.openseizuredetector.aw.wear.pushSettings";

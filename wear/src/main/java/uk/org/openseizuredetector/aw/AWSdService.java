@@ -95,6 +95,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     public Context parentContext;
     public int mNSamp = 0;
     public double mSampleFreq = 0d;
+    int calculationStep = -1; // uninitialised.
 
     private long lastNotificationLevel = 0;
     public double[] mAccData;
@@ -215,8 +216,8 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     };
 
 
-    private List<Double> rawDataList;
-    private List<Double> rawDataList3D;
+    private List<Double> rawDataList = new ArrayList<>(0);
+    private List<Double> rawDataList3D = new ArrayList<>(0);
     private int mChargingState = 0;
     private boolean mIsCharging = false;
     private int chargePlug = 0;
@@ -544,16 +545,16 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 break;
             case 1:
                 titleStr = "WARNING";
-                smsStr = "OSD Active: " + mSdData.mHR + " bpm "  + mSdData.alarmPhrase;
+                smsStr = "OSD Active: " + mSdData.mHr + " bpm "  + mSdData.alarmPhrase;
             case 2:
                 titleStr = "ALARM";
-                smsStr = "OSD Active: " + mSdData.mHR + " bpm " + mSdData.alarmPhrase;
+                smsStr = "OSD Active: " + mSdData.mHr + " bpm " + mSdData.alarmPhrase;
             case -1:
                 titleStr = "FAULT";
-                smsStr = "OSD Active: " + mSdData.mHR + " bpm " + mSdData.alarmPhrase;
+                smsStr = "OSD Active: " + mSdData.mHr + " bpm " + mSdData.alarmPhrase;
             default:
                 titleStr = "OK";
-                smsStr = "OSD Active: " + mSdData.mHR + " bpm";
+                smsStr = "OSD Active: " + mSdData.mHr + " bpm";
         }
         String man[] = {Manifest.permission.BODY_SENSORS_BACKGROUND,
                 Manifest.permission.FOREGROUND_SERVICE,
@@ -743,11 +744,16 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             //TODO
         } else if ((!messageEventPath.isEmpty()) && Constants.GLOBAL_CONSTANTS.MESSAGE_OSD_FUNCTION_RESTART.equals(messageEventPath)) {
             if (sensorsActive) unBindSensorListeners();
-            if (calculateStaticTimings() && !isCharging()) {
-                bindSensorListeners();
+            if (calculateStaticTimings() ) {
+                if (!isCharging()){
+                    bindSensorListeners();
+                }
+                else {
+                    Log.d(TAG,"onMessageReceived(): MESSAGE_OSD_FUNCTION_RESTART is charging detected. Not initialising sensors");
+                }
             }
             else {
-                Log.d(TAG,"onMessageReceived(): is charging detected. Not initialising sensors");
+                Log.d(TAG,"onMessageReceived(): MESSAGE_OSD_FUNCTION_RESTART failed to calculate static timings" );
                 return;
             }
             //TODO
@@ -757,13 +763,17 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             Log.v(TAG, "Received new settings");
 
             try {
-                mSdData.fromJSON(s1);
-                mSdDataSettings = mSdData;
-                if (!calculateStaticTimings() || isCharging()) {
+                mSdDataSettings.fromJSON(s1);
+                calculationStep = 0;
+                if (!calculateStaticTimings()) {
+                    Log.d(TAG, "onMessageReceived(): not calculated timings, returning uninitialised");
+                    return;
+                }
+                if (isCharging()) {
                     Log.d(TAG,"onMessageReceived(): is charging detected. Not initialising sensors");
                     return;
                 }
-                prefValHrAlarmActive = mSdData.mHRAlarmActive;
+                prefValHrAlarmActive = mSdData.mHrAlarmActive;
                 if (!Objects.equals(mNodeFullName, null))
                     if (mNodeFullName.isEmpty()) {
                         String nodeFullName = mNodeFullName;
@@ -813,11 +823,14 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 mSdData = sdData;
                 mSdDataSettings = sdData;
                 if (sensorsActive) unBindSensorListeners();
-                if (calculateStaticTimings() && !isCharging())
-                    bindSensorListeners();
-                else {
-                    Log.d(TAG,"onMessageReceived(): is charging detected. Not initialising sensors");
-                    return;
+                if (calculateStaticTimings()) {
+                    if (!isCharging() || Constants.GLOBAL_CONSTANTS.debugStartAllowed)
+                        bindSensorListeners();
+                    else {
+                        Log.d(TAG, "onMessageReceived(): MESSAGE_ITEM_OSD_DATA_RECEIVED: is charging detected. Not initialising sensors");
+                    }
+                }else{
+                    Log.d(TAG,"onMessageReceived(): MESSAGE_ITEM_OSD_DATA_RECEIVED: Did not calculate Static Timings.");
                 }
 
             } catch (Exception e) {
@@ -912,52 +925,87 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
      * mSdData.analysisPeriod and mSdData.mDefaultSampleCount .
      */
     private boolean calculateStaticTimings() {
-        // default sampleCount : mSdData.mDefaultSampleCount
-        // default sampleTime  : mSdData.analysisPeriod
-        // sampleFrequency = sampleCount / sampleTime:
-        if (Objects.isNull(mSdDataSettings)||Objects.isNull(mSdData)) {
-            Log.d(TAG,"CalculateStaticTimings(): Returning false due to empty mSdDataSettings");
-            return false;
-        }
-        if (mSdDataSettings.mDefaultSampleCount<=2||mSdDataSettings.analysisPeriod<=1||
-                mSdData.mDefaultSampleCount<=2||mSdData.analysisPeriod<=1||
-                mSdData.dT < 3*10e-5) {
-            Log.d(TAG,"CalculateStaticTimings(): Returning false due to non-set SD-Settings");
-            return false;
-        }
-        if (mSdData.mSampleFreq < 1|| mSdData.mNsamp <= mSdData.mDefaultSampleCount) {
-            mCurrentMaxSampleCount = Constants.SD_SERVICE_CONSTANTS.defaultSampleCount;
-            mSdData.mSampleFreq = (long)( ((double)mCurrentMaxSampleCount) / (double)(mSdData.dT * 10e3));
-        }
-        else
-            mSdData.mSampleFreq = (long) (((double)mSdData.mNsamp) / mSdData.dT);
-        if (mSdData.mSampleFreq < 1)
-            return false;
-        long newmSampleFreq = (long) ((double)mCurrentMaxSampleCount / mSdData.dT);
-        // now we have mSampleFreq in number samples / second (Hz) as default.
-        // to calculate sampleTimeUs: (1 / mSampleFreq) * 1000 [1s == 1000000us]
-        mSampleTimeUs = (1d / (double) mSdData.mSampleFreq) * 1e6d;
+        Log.d(TAG,"CalculateStaticTimings() entered.");
+        try{// default sampleCount : mSdData.mDefaultSampleCount
+            // default sampleTime  : mSdData.analysisPeriod
+            // sampleFrequency = sampleCount / sampleTime:
+            // in : mSdData.dT in milis or -1, or -2:
+            // -1: uninitialised and unset from phone.
+            // -2: set from phone, pending first round.
+            if (Objects.isNull(mSdDataSettings) || Objects.isNull(mSdData)) {
+                Log.d(TAG, "CalculateStaticTimings(): Returning false due to empty mSdDataSettings");
+                return false;
+            }
+            if (calculationStep == -1)
+            {
+                mSdData.analysisPeriod = Constants.SD_SERVICE_CONSTANTS.defaultSampleTime;
+                mSdData.dT = Constants.SD_SERVICE_CONSTANTS.defaultSampleTime;
+                mSdData.mSampleFreq = Constants.SD_SERVICE_CONSTANTS.defaultSampleRate;
+                mSdData.mDefaultSampleCount = Constants.SD_SERVICE_CONSTANTS.defaultSampleCount;
+                mCurrentMaxSampleCount = mSdData.mDefaultSampleCount;
+            }
 
-        // num samples == fixed final 250 (NSAMP)
-        // time seconds in default == 10 (SIMPLE_SPEC_FMAX)
-        // count samples / time = 25 samples / second == 25 Hz max.
-        // 1 Hz == 1 /s
-        // 25 Hz == 0,04s
-        // 1s == 1.000.000 us (sample interval)
-        // sampleTime = 40.000 uS == (SampleTime (s) * 1000)
-        if (mSdDataSettings.rawData.length > 0 && mSdDataSettings.dT > 0d) {
-            double mSDDataSampleTimeUs = 1d / (double) (Constants.SD_SERVICE_CONSTANTS.defaultSampleCount / Constants.SD_SERVICE_CONSTANTS.defaultSampleTime) * 1.0e6;
-            mConversionSampleFactor = mSampleTimeUs / mSDDataSampleTimeUs;
-        } else
-            mConversionSampleFactor = 1d;
-        if (accelerationCombined != -1d) {
-            gravityScaleFactor = (Math.round(accelerationCombined / SensorManager.GRAVITY_EARTH) % 10d);
+            if (mSdData.dT == -2) {
+                mSdData.dT = mSdData.analysisPeriod;
+                mCurrentMaxSampleCount = mSdData.mNsampDefault;
+            }
+            if (calculationStep == 0) // initialised with default data stored in mSdDataSettings
+            {
+                mSdData.analysisPeriod = Constants.SD_SERVICE_CONSTANTS.defaultSampleTime;
+                mSdData.dT = Constants.SD_SERVICE_CONSTANTS.defaultSampleTime;
+                mSdData.mDefaultSampleCount = Constants.SD_SERVICE_CONSTANTS.defaultSampleCount;
+                mCurrentMaxSampleCount = mSdData.mNsampDefault;
+            }
+            if (calculationStep == 1){
+                try {
+                    if (mSdData.dT > 1) {
+                        mSdData.analysisPeriod = (int) mSdData.dT;
+                    }
+                    else {
+                        mSdData.analysisPeriod = mSdDataSettings.analysisPeriod;
+                    }
 
-        } else {
-            gravityScaleFactor = 1d;
+                }catch (Exception e)
+                {
+                    Log.e(TAG,"calculateStaticTimings(): ",e);
+                    calculationStep = 0;
+                    calculateStaticTimings();
+                }
+            }
+            mSdData.mSampleFreq = (long) ((double) mCurrentMaxSampleCount / mSdData.dT);
+
+            if (mSdData.mSampleFreq < 1)
+                mSdData.mSampleFreq = Constants.SD_SERVICE_CONSTANTS.defaultSampleRate;
+
+            long newmSampleFreq = (long) ((double) mCurrentMaxSampleCount / mSdData.dT);
+            // now we have mSampleFreq in number samples / second (Hz) as default.
+            // to calculate sampleTimeUs: (1 / mSampleFreq) * 1000 [1s == 1000000us]
+            mSampleTimeUs = OsdUtil.convertTimeUnit((1d / (double) mSdData.mSampleFreq) ,TimeUnit.SECONDS,TimeUnit.MICROSECONDS);
+
+            // num samples == fixed final 250 (NSAMP)
+            // time seconds in default == 10 (SIMPLE_SPEC_FMAX)
+            // count samples / time = 25 samples / second == 25 Hz max.
+            // 1 Hz == 1 /s
+            // 25 Hz == 0,04s
+            // 1s == 1.000.000 us (sample interval)
+            // sampleTime = 40.000 uS == (SampleTime (s) * 1000)
+            if (rawDataList.size() > 0 && mSdDataSettings.dT > 0d) {
+                double mSDDataSampleTimeUs = OsdUtil.convertTimeUnit((1d / (double) Constants.SD_SERVICE_CONSTANTS.defaultSampleRate ),TimeUnit.SECONDS,TimeUnit.MICROSECONDS );
+                mConversionSampleFactor = mSampleTimeUs / mSDDataSampleTimeUs;
+            } else
+                mConversionSampleFactor = 1d;
+            if (accelerationCombined != -1d) {
+                gravityScaleFactor = (Math.round(accelerationCombined / SensorManager.GRAVITY_EARTH) % SensorManager.GRAVITY_EARTH);
+
+            } else {
+                gravityScaleFactor = 1d;
+            }
+            miliGravityScaleFactor = gravityScaleFactor * 10e3;
+            return true;
+        }catch (Exception e){
+            Log.e(TAG,"calculateStaticTimings() encountered an error: ", e);
+            return false;
         }
-        miliGravityScaleFactor = gravityScaleFactor * 1e3;
-        return true;
     }
 
     public void bindSensorListeners() {
@@ -1042,7 +1090,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                             }
                         };
                     if (!samsungWearSpO2Sensor.isSensorListening())
-                        samsungWearSpO2Sensor.startListening();
+                        mUtil.runOnUiThread(()->samsungWearSpO2Sensor.startListening());
                     mSensorManager = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
                     mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
                     mSensorManager.registerListener(this, mSensor, (int) mSampleTimeUs, (int) mSampleTimeUs * 3, mHandler);
@@ -1419,9 +1467,9 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                         int newValue = Math.round(event.values[0]);
                         //Log.d(LOG_TAG,sensorEvent.sensor.getName() + " changed to: " + newValue);
                         // only do something if the value differs from the value before and the value is not 0.
-                        if (mSdData.mHR != newValue && newValue != 0) {
+                        if (mSdData.mHr != newValue && newValue != 0) {
                             // save the new value
-                            mSdData.mHR = newValue;
+                            mSdData.mHr = newValue;
                             // add it to the list and computer a new average
                             if (heartRates.size() == 10) {
                                 heartRates.remove(0);
@@ -1430,12 +1478,12 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                             if ((Integer.MAX_VALUE -1) == mHeartRatesCount)
                                 mHeartRatesCount = heartRates.size();
                             mHeartRatesCount++;
-                            heartRates.add(mSdData.mHR);
+                            heartRates.add(mSdData.mHr);
 
                         }
-                        mSdData.mHRAvg = calculateAverage(heartRates);
+                        mSdData.mHrAvg = calculateAverage(heartRates);
                         if (heartRates.size() < 4) {
-                            mSdData.mHRAvg = 0;
+                            mSdData.mHrAvg = 0;
                         }
                         checkAlarm();
                         if(mHeartRatesCount %10 == 0 ) {
@@ -1457,12 +1505,13 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                             }
                             if (mSdData.mNsamp >= mSdDataSettings.mDefaultSampleCount) {
                                 Log.v(TAG, "onSensorChanged(): Collected Data = final TimeStamp=" + event.timestamp + ", initial TimeStamp=" + mStartTs);
-                                mSdData.dT = TimeUnit.MILLISECONDS.toSeconds( (event.timestamp - mStartTs));
+                                mSdData.dT = OsdUtil.convertTimeUnit ((double)(event.timestamp - mStartTs),TimeUnit.NANOSECONDS,TimeUnit.SECONDS);
                                 mCurrentMaxSampleCount = mSdData.mNsamp;
                                 mSdData.mSampleFreq = (int) (mSdData.mNsamp / mSdData.dT);
                                 mSdData.haveSettings = true;
                                 Log.v(TAG, "onSensorChanged(): Collected data for " + mSdData.dT + " sec - calculated sample rate as " + mSampleFreq + " Hz");
                                 accelerationCombined = sqrt(event.values[0] * event.values[0] + event.values[1] * event.values[1] + event.values[2] * event.values[2]);
+                                calculationStep  = 1;
                                 calculateStaticTimings();
                                 mMode = 1;
                                 mSdData.mNsamp = 0;
@@ -1478,7 +1527,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                                 // analysis - this is because sometimes you get a very long delay (e.g. when disconnecting debugger),
                                 // which gives a very low frequency which can make us run off the end of arrays in doAnalysis().
                                 // FIXME - we should do some sort of check and disregard samples with long delays in them.
-                                mSdData.dT = 1e-9 * (event.timestamp - mStartTs);
+                                double tmpdt = OsdUtil.convertTimeUnit(event.timestamp - mStartTs,TimeUnit.NANOSECONDS,TimeUnit.SECONDS);
                                 int sampleFreq = (int) (mSdData.mNsamp / mSdData.dT);
                                 Log.v(TAG, "onSensorChanged(): Collected " + mSdData.mNsamp + " data points in " + mSdData.dT + " sec (=" + sampleFreq + " Hz) - analysing...");
 
@@ -1582,7 +1631,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             return;
         }
         //temporary force true mHrAlarmActive
-        //mSdData.mHRAlarmActive = (mSdData.alarmState != 6 && mSdData.alarmState != 10);
+        //mSdData.mHrAlarmActive = (mSdData.alarmState != 6 && mSdData.alarmState != 10);
 
         boolean inAlarm = false;
         Long alarmHoldOfTime = (mSdData.alarmTime - (TimeUnit.MINUTES.toMillis(mAlarmTime)));
@@ -1590,20 +1639,20 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             if (mSdData.roiPower > mSdData.alarmThresh && mSdData.roiRatio > mSdData.alarmRatioThresh) {
                 inAlarm = true;
                 mAlarmTime = (int) mSdData.alarmTime;
-                mSdData.mHRAlarmStanding = true;
+                mSdData.mHrAlarmStanding = true;
             }
 
-            if (mSdData.mHRAvg > 0d)
-                if (mSdData.mHRAlarmActive && ((mSdData.mHRAvg < mSdData.mHRThreshMin) || (mSdData.mHRAvg > mSdData.mHRThreshMax))) {
+            if (mSdData.mHrAvg > 0d)
+                if (mSdData.mHrAlarmActive && ((mSdData.mHrAvg < mSdData.mHrThreshMin) || (mSdData.mHrAvg > mSdData.mHrThreshMax))) {
                     inAlarm = true;
-                    mSdData.mHRAlarmStanding = true;
+                    mSdData.mHrAlarmStanding = true;
                     mAlarmTime = (int) mSdData.alarmTime;
                     mSdData.alarmPhrase = "Heart rate lower than minThreshold";
                 }
-            if (mSdData.mHRAlarmActive && mSdData.mHRAvg != 0d && mSdData.mHR > mSdData.mHRAvg * mHeartPercentThresh) {
+            if (mSdData.mHrAlarmActive && mSdData.mHrAvg != 0d && mSdData.mHr > mSdData.mHrAvg * mHeartPercentThresh) {
                 inAlarm = true;
                 mAlarmTime = (int) mSdData.alarmTime;
-                mSdData.mHRAlarmStanding = true;
+                mSdData.mHrAlarmStanding = true;
                 mSdData.alarmPhrase = "Heart rate higher than minThreshold";
             }
             //Log.v(TAG, "checkAlarm() roiPower " + mSdData.roiPower + " roiRaTIO " + mSdData.roiRatio);
@@ -1688,7 +1737,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             // Calculate the whole spectrum power (well a value equivalent to it that avoids square root calculations
             // and zero any readings that are above the frequency cutoff.
             double specPower = 0;
-            for (int i = 1; i < mSdData.mNsamp / 2; i++) {
+            for (int i = 1; i < (mSdData.mNsamp  / 2) -2 ; i++) {
                 if (i <= nFreqCutoff) {
                     specPower = specPower + getMagnitude(fft, i);
                 } else {
@@ -1715,7 +1764,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 int binMin = (int) (1 + ifreq / freqRes);    // add 1 to loose dc component
                 int binMax = (int) (1 + (ifreq + 1) / freqRes);
                 simpleSpec[ifreq] = 0;
-                for (int i = binMin; i < binMax; i++) {
+                for (int i = binMin; i < binMax -3; i++) {
                     simpleSpec[ifreq] = simpleSpec[ifreq] + getMagnitude(fft, i);
                 }
                 simpleSpec[ifreq] = simpleSpec[ifreq] / (binMax - binMin);
@@ -1774,7 +1823,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     }
 
     // Send a MesageApi message text to all connected devices.
-    private void sendMessage(final String path, final String text) {
+    private void sendMessage(final String path, @NonNull final String text) {
         boolean returnResult = false;
         Log.v(TAG, "sendMessage(" + path + "," + text + ")");
         final byte[] payload = (text.getBytes(StandardCharsets.UTF_8));

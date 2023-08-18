@@ -73,6 +73,7 @@ import java.util.Enumeration;
 import java.util.HashMap;
 //use java.Util.Objects as comparetool.
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /**
@@ -450,6 +451,29 @@ public class OsdUtil {
             Log.v(TAG, "writeToDataLogFile - mLogData False so not writing");
     }
 
+    /**
+     * Convert From TimeUnit to TimeUnit in Double format
+     * @param amount Enter in double format value to convert
+     * @param from Enter TimeUnit Origin like TimeUnit.SECONDS
+     * @param to Enter TimeUnit.MICROSECONDS
+     * <p>
+     * if from equals to, the original value returns.
+     *
+     * @return Double converted value.
+     * */
+
+    public static double convertTimeUnit(double amount, TimeUnit from, TimeUnit to) {
+        // if the same unit is passed, avoid the conversion
+        if (from == to) {
+            return amount;
+        }
+        // is from or to the larger unit?
+        if (from.ordinal() < to.ordinal()) { // from is smaller
+            return amount / from.convert(1, to);
+        } else {
+            return amount * to.convert(1, from);
+        }
+    }
 
     /**
      * Write data to SD card - writes to data log file unless alarm=true,
