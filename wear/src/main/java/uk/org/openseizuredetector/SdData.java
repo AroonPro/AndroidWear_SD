@@ -265,6 +265,7 @@ public class SdData<T> implements Parcelable {
             jsonObj.put("maxVal", maxVal);
             jsonObj.put("maxFreq", maxFreq);
             jsonObj.put("sampleFreq", mSampleFreq);
+            jsonObj.put("dT", dT);
             jsonObj.put("specPower", specPower);
             jsonObj.put("roiPower", roiPower);
             jsonObj.put("roiRatio", 10 * roiPower / specPower);
@@ -416,6 +417,7 @@ public class SdData<T> implements Parcelable {
             jsonObj.put("alarmState", alarmState);
             jsonObj.put("alarmPhrase", alarmPhrase);
             jsonObj.put("sdMode", mSdMode);
+            jsonObj.put("dT", dT);
             jsonObj.put("sampleFreq", mSampleFreq);
             jsonObj.put("analysisPeriod", analysisPeriod);
             jsonObj.put("defaultSampleCount", mDefaultSampleCount);

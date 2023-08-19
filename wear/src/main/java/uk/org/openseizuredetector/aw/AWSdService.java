@@ -995,7 +995,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             } else
                 mConversionSampleFactor = 1d;
             if (accelerationCombined != -1d) {
-                gravityScaleFactor = (Math.round(accelerationCombined / SensorManager.GRAVITY_EARTH) % SensorManager.GRAVITY_EARTH);
+                gravityScaleFactor = (Math.round(accelerationCombined % SensorManager.GRAVITY_EARTH)/SensorManager.GRAVITY_EARTH);
 
             } else {
                 gravityScaleFactor = 1d;
@@ -1509,7 +1509,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                                 mCurrentMaxSampleCount = mSdData.mNsamp;
                                 mSdData.mSampleFreq = (int) (mSdData.mNsamp / mSdData.dT);
                                 mSdData.haveSettings = true;
-                                Log.v(TAG, "onSensorChanged(): Collected data for " + mSdData.dT + " sec - calculated sample rate as " + mSampleFreq + " Hz");
+                                Log.v(TAG, "onSensorChanged(): Collected data for " + mSdData.dT + " sec - calculated sample rate as " + mSdData.mSampleFreq + " Hz");
                                 accelerationCombined = sqrt(event.values[0] * event.values[0] + event.values[1] * event.values[1] + event.values[2] * event.values[2]);
                                 calculationStep  = 1;
                                 calculateStaticTimings();
@@ -1538,10 +1538,10 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                                 for (int i = 0; i < Constants.SD_SERVICE_CONSTANTS.defaultSampleCount; i++) {
                                     readPosition = (int) (i / mConversionSampleFactor);
                                     if (readPosition < rawDataList.size()) {
-                                        mSdData.rawData[i] = gravityScaleFactor * rawDataList.get(readPosition) / SensorManager.GRAVITY_EARTH;
-                                        mSdData.rawData3D[i] = gravityScaleFactor * rawDataList3D.get(readPosition) / SensorManager.GRAVITY_EARTH;
-                                        mSdData.rawData3D[i + 1] = gravityScaleFactor * rawDataList3D.get(readPosition + 1) / SensorManager.GRAVITY_EARTH;
-                                        mSdData.rawData3D[i + 2] = gravityScaleFactor * rawDataList3D.get(readPosition + 2) / SensorManager.GRAVITY_EARTH;
+                                        mSdData.rawData[i] = (gravityScaleFactor * SensorManager.GRAVITY_EARTH) * rawDataList.get(readPosition) / SensorManager.GRAVITY_EARTH;
+                                        mSdData.rawData3D[i] = (gravityScaleFactor * SensorManager.GRAVITY_EARTH) * rawDataList3D.get(readPosition) / SensorManager.GRAVITY_EARTH;
+                                        mSdData.rawData3D[i + 1] = (gravityScaleFactor * SensorManager.GRAVITY_EARTH) * rawDataList3D.get(readPosition + 1) / SensorManager.GRAVITY_EARTH;
+                                        mSdData.rawData3D[i + 2] = (gravityScaleFactor * SensorManager.GRAVITY_EARTH) * rawDataList3D.get(readPosition + 2) / SensorManager.GRAVITY_EARTH;
                                         //Log.v(TAG,"i="+i+", rawData="+mSdData.rawData[i]+","+mSdData.rawData[i/2]);
                                     }
                                 }

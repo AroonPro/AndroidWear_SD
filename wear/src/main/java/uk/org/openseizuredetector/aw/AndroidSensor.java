@@ -1,5 +1,6 @@
 package uk.org.openseizuredetector.aw;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -139,7 +140,8 @@ AndroidSensor(Context context,
                 for (String permission: mSensorPermissions){
                     if (!permission.isEmpty()){
                         if (hasNoPermission(permission) ) {
-                            ActivityCompat.requestPermissions((Activity) mContext, new String[]{permission}, 0);
+                            if (ActivityCompat.shouldShowRequestPermissionRationale((Activity) mContext,permission))
+                                ActivityCompat.requestPermissions((Activity) mContext, new String[]{permission}, 0);
                         }
                     }
                 }
