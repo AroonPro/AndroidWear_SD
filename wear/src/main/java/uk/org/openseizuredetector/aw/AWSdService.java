@@ -238,6 +238,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     private static HeartBeatSensor heartBeatSensor;
     private MotionDetectSensor motionDetectSensor;
     private int mHeartRatesCount;
+    private List<Node> connectedNodes;
 
     public AWSdService() {
         super();
@@ -297,14 +298,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             }
         }
 
-        if (Objects.equals(allNodes, null)) {
-            if (Objects.equals(mNodeListClient, null))
-                mNodeListClient = Wearable.getNodeClient(this);
-            Task getAllNodes = mNodeListClient.getConnectedNodes();
-            getAllNodes.addOnSuccessListener(result -> {
-                allNodes = (List<Node>) result;
-            });
-        }
+
          if (Objects.nonNull(intent))
                 intentFromOnStart = intent;
             else return START_NOT_STICKY;
@@ -317,6 +311,18 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             //mStartForegroundService(intent);
 
             serviceRunner(intent);
+            if (Objects.equals(allNodes, null)) {
+                if (Objects.equals(mNodeListClient, null))
+                    mNodeListClient = Wearable.getNodeClient(this);
+                Task getAllNodes = mNodeListClient.getConnectedNodes();
+                getAllNodes.addOnSuccessListener(result -> {
+                    allNodes = (List<Node>) result;
+                    if (allNodes.size() == 0){
+                        mUtil.showToast("Did not find any Mobile Nodes!");
+
+                    }
+                });
+            }
             //showNotification(0);
         }
         return super.onStartCommand(intent, flags, startId);
@@ -436,9 +442,9 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                                            public void run() {
                                                try {
                                                    Log.v(TAG, "startWatchApp() - Timer as Timeout, fires if not connected...");
-                                                   if (mNodeListClient instanceof List && !mSdData.serverOK) {
+                                                   if (Objects.nonNull(mNodeListClient) && !mSdData.serverOK) {
                                                        Log.v(TAG, "OnStartCommand(): We only get here, if Wear Watch starts OSD first.");
-                                                       List<Node> connectedNodes = mNodeListClient.getConnectedNodes().getResult();
+                                                       connectedNodes = mNodeListClient.getConnectedNodes().getResult();
                                                        if (connectedNodes.size() > 0) {
                                                            for (Node node : connectedNodes) {
                                                                Log.d(TAG, "OnStartCommand() - in client for initiation of device Paring with id " + node.getId() + " " + node.getDisplayName());
@@ -460,6 +466,9 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                                                    }
                                                } catch (Exception e) {
                                                    Log.e(TAG, "onStartCommand() /TimerTask/Run(): Excempted:", e);
+                                               }
+                                               if (mSdData.serverOK){
+                                                   appStartTimer.cancel();
                                                }
 
                                            }
@@ -995,7 +1004,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             } else
                 mConversionSampleFactor = 1d;
             if (accelerationCombined != -1d) {
-                gravityScaleFactor = (Math.round(accelerationCombined % SensorManager.GRAVITY_EARTH)/SensorManager.GRAVITY_EARTH);
+                gravityScaleFactor = accelerationCombined / SensorManager.GRAVITY_EARTH;
 
             } else {
                 gravityScaleFactor = 1d;
@@ -1037,7 +1046,11 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                         if (this.checkSelfPermission(Manifest.permission.BODY_SENSORS) != PackageManager.PERMISSION_GRANTED) {
                             //requestPermissions(new String[]{Manifest.permission.BODY_SENSORS}, 1);
                             ActivityCompat.requestPermissions(getActivity(this),
-                                    new String[]{Manifest.permission.BODY_SENSORS},
+                                    new String[]{
+                                            Manifest.permission.ACTIVITY_RECOGNITION,
+                                            Manifest.permission.BODY_SENSORS,
+                                            Manifest.permission.BODY_SENSORS_BACKGROUND,
+                                            Manifest.permission.FOREGROUND_SERVICE_HEALTH},
                                     Constants.GLOBAL_CONSTANTS.PERMISSION_REQUEST_BODY_SENSORS);
 
 
@@ -1384,7 +1397,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             Log.e(TAG, "onBind(): Error in reloading vars ", e);
         }
         mBound = true;
-        return mBinder;
+        return new SdBinder();
     }
 
 

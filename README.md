@@ -57,3 +57,7 @@ The following libraries and other media are used in AndroidWear_SD
     Dutch or European law cover a vast amound testing and certification to be done, before
     apps may be entitled medical. For the time officical certifiaction is not in place. 
     Usage of this app should be done with caution.
+
+## Testing link:
+
+    https://stackoverflow.com/questions/41637552/how-to-add-a-google-account-in-android-wear-2-0-emulator

@@ -1,6 +1,9 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 buildscript {
+    ext {
+        agp_version = '8.1.1'
+    }
     repositories {
         mavenCentral()
         maven {
@@ -10,7 +13,7 @@ buildscript {
         google()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.2.0-alpha12'
+        classpath "com.android.tools.build:gradle:$agp_version"
         classpath("de.mannodermaus.gradle.plugins:android-junit5:1.8.2.1")
 
 
