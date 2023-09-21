@@ -251,7 +251,7 @@ public class StartUpActivity extends AppCompatActivity
                                                 .append(" time: ")
                                                 .append(Calendar.getInstance().getTime())
                                                 .append(" ❤️ ")
-                                                .append((short) mSdData.mHr)
+                                                .append((short) mSdData.mHR)
                                                 .append(" \uD83D\uDD0B% ")
                                                 .append(mSdData.batteryPc)
                                                 .toString());
@@ -615,6 +615,8 @@ public class StartUpActivity extends AppCompatActivity
                         else {
                             String mO2viewString;
                             mO2viewString =(mSdData.mO2Sat > 0 && mSdData.mO2SatAlarmActive) ? " %O2: "+ mSdData.mO2Sat :  "%O2 n/a";
+                            String mAlarmString = (mConnection.mAWSdService.mSdData.alarmState == 2 || mConnection.mAWSdService.mSdData.alarmState == 1)?
+                                    "Alarm reason: " + mSdData.alarmPhrase : "";
                             //Log.v(TAG, "updateUiTask() - " +mConnection.mAWSdService.mNSamp);
                             if (mTextView != null)
                                 mTextView.setText(textViewBuilder.append(getResources().getString(R.string.hello_round))
@@ -623,12 +625,13 @@ public class StartUpActivity extends AppCompatActivity
                                         .append(" time: ")
                                         .append(Calendar.getInstance().getTime())
                                         .append("\n ❤️ ")
-                                        .append((short) mConnection.mAWSdService.mSdData.mHr)
+                                        .append((short) mConnection.mAWSdService.mSdData.mHR)
                                         .append(" \uD83D\uDD0B% ")
                                         .append(mConnection.mAWSdService.mSdData.batteryPc)
                                         .append(" 📱 \uD83D\uDD0B% : ")
                                         .append(mConnection.mAWSdService.serverBatteryPct)
                                         .append(mO2viewString)
+                                        .append(mAlarmString)
                                         .toString());
 
                             if (mAlarmText != null && mConnection.mAWSdService.mSdData != null) {

@@ -32,6 +32,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.util.Log;
 import android.widget.Toast;
@@ -156,6 +157,8 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     private int alarmCount = 0;
     private long lastAlarmTimeInMilis;
     private int avgHeart = 0;
+    private long lastTimeOffBody = 0;
+    private boolean hasTriggeredlastTimeOffBodyAlarm = false;
     private float batteryPct = -1f;
     public int serverBatteryPct = -1;
     private ArrayList<Double> heartRates = new ArrayList<Double>(10);
@@ -554,16 +557,16 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 break;
             case 1:
                 titleStr = "WARNING";
-                smsStr = "OSD Active: " + mSdData.mHr + " bpm "  + mSdData.alarmPhrase;
+                smsStr = "OSD Active: " + mSdData.mHR + " bpm "  + mSdData.alarmPhrase;
             case 2:
                 titleStr = "ALARM";
-                smsStr = "OSD Active: " + mSdData.mHr + " bpm " + mSdData.alarmPhrase;
+                smsStr = "OSD Active: " + mSdData.mHR + " bpm " + mSdData.alarmPhrase;
             case -1:
                 titleStr = "FAULT";
-                smsStr = "OSD Active: " + mSdData.mHr + " bpm " + mSdData.alarmPhrase;
+                smsStr = "OSD Active: " + mSdData.mHR + " bpm " + mSdData.alarmPhrase;
             default:
                 titleStr = "OK";
-                smsStr = "OSD Active: " + mSdData.mHr + " bpm";
+                smsStr = "OSD Active: " + mSdData.mHR + " bpm";
         }
         String man[] = {Manifest.permission.BODY_SENSORS_BACKGROUND,
                 Manifest.permission.FOREGROUND_SERVICE,
@@ -740,8 +743,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 if (Objects.equals(input, Constants.GLOBAL_CONSTANTS.wearableAppCheckPayload))
                     sendMessage(Constants.GLOBAL_CONSTANTS.APP_OPEN_WEARABLE_PAYLOAD_PATH, Constants.GLOBAL_CONSTANTS.wearableAppCheckPayloadReturnACK);
                 if (Objects.equals(input, Constants.GLOBAL_CONSTANTS.wearableAppCheckPayloadReturnACK))
-                    if (mSdData.analysisPeriod == 0)
-                        sendMessage(Constants.GLOBAL_CONSTANTS.APP_OPEN_WEARABLE_PAYLOAD_PATH, Constants.ACTION.PULL_SETTINGS_ACTION);
+                    sendMessage(Constants.GLOBAL_CONSTANTS.APP_OPEN_WEARABLE_PAYLOAD_PATH, Constants.ACTION.PULL_SETTINGS_ACTION);
 
                 Log.d(TAG, "!messageEventPath.isEmpty() && Objects.equals(messageEventPath, APP_OPEN_WEARABLE_PAYLOAD_PATH) We returned from sending message.");
 
@@ -782,7 +784,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                     Log.d(TAG,"onMessageReceived(): is charging detected. Not initialising sensors");
                     return;
                 }
-                prefValHrAlarmActive = mSdData.mHrAlarmActive;
+                prefValHrAlarmActive = mSdData.mHRAlarmActive;
                 if (!Objects.equals(mNodeFullName, null))
                     if (mNodeFullName.isEmpty()) {
                         String nodeFullName = mNodeFullName;
@@ -1480,9 +1482,9 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                         int newValue = Math.round(event.values[0]);
                         //Log.d(LOG_TAG,sensorEvent.sensor.getName() + " changed to: " + newValue);
                         // only do something if the value differs from the value before and the value is not 0.
-                        if (mSdData.mHr != newValue && newValue != 0) {
+                        if (mSdData.mHR != newValue && newValue != 0) {
                             // save the new value
-                            mSdData.mHr = newValue;
+                            mSdData.mHR = newValue;
                             // add it to the list and computer a new average
                             if (heartRates.size() == 10) {
                                 heartRates.remove(0);
@@ -1491,12 +1493,12 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                             if ((Integer.MAX_VALUE -1) == mHeartRatesCount)
                                 mHeartRatesCount = heartRates.size();
                             mHeartRatesCount++;
-                            heartRates.add(mSdData.mHr);
+                            heartRates.add(mSdData.mHR);
 
                         }
-                        mSdData.mHrAvg = calculateAverage(heartRates);
+                        mSdData.mHRAvg = calculateAverage(heartRates);
                         if (heartRates.size() < 4) {
-                            mSdData.mHrAvg = 0;
+                            mSdData.mHRAvg = 0;
                         }
                         checkAlarm();
                         if(mHeartRatesCount %10 == 0 ) {
@@ -1551,10 +1553,10 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                                 for (int i = 0; i < Constants.SD_SERVICE_CONSTANTS.defaultSampleCount; i++) {
                                     readPosition = (int) (i / mConversionSampleFactor);
                                     if (readPosition < rawDataList.size()) {
-                                        mSdData.rawData[i] = (gravityScaleFactor * SensorManager.GRAVITY_EARTH) * rawDataList.get(readPosition) / SensorManager.GRAVITY_EARTH;
-                                        mSdData.rawData3D[i] = (gravityScaleFactor * SensorManager.GRAVITY_EARTH) * rawDataList3D.get(readPosition) / SensorManager.GRAVITY_EARTH;
-                                        mSdData.rawData3D[i + 1] = (gravityScaleFactor * SensorManager.GRAVITY_EARTH) * rawDataList3D.get(readPosition + 1) / SensorManager.GRAVITY_EARTH;
-                                        mSdData.rawData3D[i + 2] = (gravityScaleFactor * SensorManager.GRAVITY_EARTH) * rawDataList3D.get(readPosition + 2) / SensorManager.GRAVITY_EARTH;
+                                        mSdData.rawData[i] = gravityScaleFactor  * rawDataList.get(readPosition) ;
+                                        mSdData.rawData3D[i] = gravityScaleFactor  * rawDataList3D.get(readPosition) ;
+                                        mSdData.rawData3D[i + 1] = gravityScaleFactor * rawDataList3D.get(readPosition + 1) ;
+                                        mSdData.rawData3D[i + 2] = gravityScaleFactor * rawDataList3D.get(readPosition + 2) ;
                                         //Log.v(TAG,"i="+i+", rawData="+mSdData.rawData[i]+","+mSdData.rawData[i/2]);
                                     }
                                 }
@@ -1603,8 +1605,10 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                                 if (event.values.length > 0) {
                                     isOffBody = event.values[0] == 0d;
                                     inOffBodyChangeEvent = true;
-                                    if (isOffBody)
+                                    if (isOffBody) {
                                         unBindSensorListeners();
+                                        if (sensorsActive) lastTimeOffBody = Calendar.getInstance().getTimeInMillis();
+                                    }
                                     else bindSensorListeners();
                                     inOffBodyChangeEvent = false;
                                 }
@@ -1643,8 +1647,17 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             //ignore alarms when muted
             return;
         }
-        //temporary force true mHrAlarmActive
-        //mSdData.mHrAlarmActive = (mSdData.alarmState != 6 && mSdData.alarmState != 10);
+        //temporary force true mHRAlarmActive
+        //mSdData.mHRAlarmActive = (mSdData.alarmState != 6 && mSdData.alarmState != 10);
+
+        Long alarmHoldOfTimeOffBody = (lastTimeOffBody - (TimeUnit.MINUTES.toMillis(mAlarmTime)));
+        if (isOffBody && !isCharging()){
+            if (Calendar.getInstance().getTimeInMillis() > lastTimeOffBody){
+                if (!hasTriggeredlastTimeOffBodyAlarm) {
+                    handleIsOffBodyReminder();
+                }
+            }
+        }
 
         boolean inAlarm = false;
         Long alarmHoldOfTime = (mSdData.alarmTime - (TimeUnit.MINUTES.toMillis(mAlarmTime)));
@@ -1652,26 +1665,30 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             if (mSdData.roiPower > mSdData.alarmThresh && mSdData.roiRatio > mSdData.alarmRatioThresh) {
                 inAlarm = true;
                 mAlarmTime = (int) mSdData.alarmTime;
-                mSdData.mHrAlarmStanding = true;
+                mSdData.alarmStanding = true;
             }
 
-            if (mSdData.mHrAvg > 0d)
-                if (mSdData.mHrAlarmActive && ((mSdData.mHrAvg < mSdData.mHrThreshMin) || (mSdData.mHrAvg > mSdData.mHrThreshMax))) {
-                    inAlarm = true;
-                    mSdData.mHrAlarmStanding = true;
+            if (mSdData.mHRAvg > 0d)
+                if (mSdData.mHRAlarmActive && ((mSdData.mHRAvg < mSdData.mHRThreshMin))) {
+                    if (!mSdData.mHRAlarmStanding) inAlarm = true;
+                    mSdData.mHRAlarmStanding = true;
                     mAlarmTime = (int) mSdData.alarmTime;
                     mSdData.alarmPhrase = "Heart rate lower than minThreshold";
                 }
-            if (mSdData.mHrAlarmActive && mSdData.mHrAvg != 0d && mSdData.mHr > mSdData.mHrAvg * mHeartPercentThresh) {
-                inAlarm = true;
+                if (mSdData.mHRAlarmActive && ((mSdData.mHRAvg > mSdData.mHRThreshMax))) {
+                    if (!mSdData.mHRAlarmStanding) inAlarm = true;
+                    mSdData.mHRAlarmStanding = true;
+                    mAlarmTime = (int) mSdData.alarmTime;
+                    mSdData.alarmPhrase = "Heart rate higher than maxThreshold";
+                }
+            if (mSdData.mHRAlarmActive && mSdData.mHRAvg != 0d && mSdData.mHR > mSdData.mHRAvg * mHeartPercentThresh) {
+                if (!mSdData.mHRAlarmStanding) inAlarm = true;
                 mAlarmTime = (int) mSdData.alarmTime;
-                mSdData.mHrAlarmStanding = true;
+                mSdData.mHRAlarmStanding = true;
                 mSdData.alarmPhrase = "Heart rate higher than minThreshold";
             }
             //Log.v(TAG, "checkAlarm() roiPower " + mSdData.roiPower + " roiRaTIO " + mSdData.roiRatio);
         }
-        if (lastNotificationLevel != mSdData.alarmState)
-            showNotification((int) mSdData.alarmState);
         lastNotificationLevel = mSdData.alarmState;
         if (inAlarm) {
             alarmCount += 1;
@@ -1679,8 +1696,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             if (alarmHoldOfTime > mSdData.alarmTime) {
                 mSdData.alarmState = 2;
                 sendMessage(Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_DATA, mSdData.toDataString(true));
-                long[] pattern = {0, 100, 200, 300};
-                mVibe.vibrate(pattern, -1);
+                vibrate();
             } else if (alarmCount > 2) {
                 mSdData.alarmState = 1;
             }
@@ -1697,15 +1713,26 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 alarmCount = 0;
             }
         }
+        if (lastNotificationLevel != mSdData.alarmState)
+            showNotification((int) mSdData.alarmState);
         if (mSdData.alarmState == 1 || mSdData.alarmState == 2) {
             Intent intent = new Intent(this, StartUpActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK );
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK| Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP );
             this.startActivity(intent);
         }
 
 
     }
 
+
+    private void vibrate(){
+        if (Objects.nonNull(mVibe)){
+            if (mVibe.hasVibrator()){
+                long[] pattern = {0,100,200,300};
+                mVibe.vibrate(VibrationEffect.createWaveform(pattern,-1));
+            }
+        }
+    }
     private double calculateAverage(List<Double> marks) {
         double sum = 0;
         if (!marks.isEmpty()) {
@@ -1824,6 +1851,14 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
         if (mSdData != null && mSdData.alarmState == 11) {
             sendDataToPhone();
         }
+    }
+
+    private void handleIsOffBodyReminder(){
+        if (isOffBody && !isCharging() ){
+            vibrate();
+            mHandler.postDelayed(()->handleIsOffBodyReminder(),TimeUnit.SECONDS.toMillis(10));
+        }
+
     }
 
     private void sendDataToPhone() {
