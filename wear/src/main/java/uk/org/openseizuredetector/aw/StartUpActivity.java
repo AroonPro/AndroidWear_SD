@@ -174,18 +174,22 @@ public class StartUpActivity extends AppCompatActivity
             public void onClick(View v) {
 
                 try {
-                    if (mConnection.mAWSdService.mSdData != null) {
-                        //send OK Message
-                        mConnection.mAWSdService.mSdData.alarmState = 10;
-                        mConnection.mAWSdService.ClearAlarmCount();
-                        mOkTimer = new Timer();
-                        mOkTimer.schedule(new TurnOffOk(), 1000);
-                        mConnection.mAWSdService.handleSendingIAmOK();
-                        //After sending message, Send activity to the background
-                        moveTaskToBack(true);
+                    if (Objects.nonNull(mConnection.mAWSdService)){
+                        if (mConnection.mAWSdService.mSdData != null) {
+                            //send OK Message
+                            mConnection.mAWSdService.mSdData.alarmState = 10;
+                            mConnection.mAWSdService.ClearAlarmCount();
+                            mOkTimer = new Timer();
+                            mOkTimer.schedule(new TurnOffOk(), 1000);
+                            mConnection.mAWSdService.handleSendingIAmOK();
+                            //After sending message, Send activity to the background
+                            moveTaskToBack(true);
 
-                    } else {
-                        Log.e(TAG, "OnClick() illegal access ofmConnection.mAWSdService.mSdData", new Throwable());
+                        } else {
+                            Log.e(TAG, "OnClick() illegal access of mConnection.mAWSdService.mSdData: not initialized", new Throwable());
+                        }
+                    }else {
+                        Log.e(TAG, "OnClick() illegal access of mConnection.mAWSdService: not initialized", new Throwable());
                     }
                 } catch (Exception e) {
                     Log.e(TAG, "OnClick() illegal access ofmConnection.mAWSdService.mSdData", e);

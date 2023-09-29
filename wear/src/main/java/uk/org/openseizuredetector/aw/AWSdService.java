@@ -862,7 +862,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
         Set<Node> changedNodeSet = capabilityInfo.getNodes();
         Node changedNode = null;
         try {
-            if (Constants.GLOBAL_CONSTANTS.mAppPackageNameWearReceiver.equalsIgnoreCase(capabilityInfo.getName())) {
+            if (Constants.GLOBAL_CONSTANTS.mAppPackageName.equalsIgnoreCase(capabilityInfo.getName())) {
                 Log.v(TAG, "Received: " + capabilityInfo.getName());
                 if (changedNodeSet.size() == 0) return;
                 changedNode = changedNodeSet.stream().findFirst().get();
@@ -872,7 +872,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                     mMobileDeviceConnected = true;
                 }
             }
-            if (Constants.GLOBAL_CONSTANTS.mAppPackageNameWearReceiver.equalsIgnoreCase(capabilityInfo.getName())) {
+            if (Constants.GLOBAL_CONSTANTS.mAppPackageName.equalsIgnoreCase(capabilityInfo.getName())) {
                 Log.v(TAG, "Received: " + capabilityInfo.getName());
                 if (changedNodeSet.size() == 0) return;
 
@@ -1329,6 +1329,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                     capabilityClient = Wearable.getCapabilityClient(this);
                     capabilityClient.addLocalCapability(Constants.GLOBAL_CONSTANTS.mAppPackageNameWearReceiver);
                     capabilityClient.addListener(this, Constants.GLOBAL_CONSTANTS.mAppPackageName);
+                    capabilityClient.notifyAll();
 
                 }
 
@@ -1607,7 +1608,11 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                                     inOffBodyChangeEvent = true;
                                     if (isOffBody) {
                                         unBindSensorListeners();
-                                        if (sensorsActive) lastTimeOffBody = Calendar.getInstance().getTimeInMillis();
+                                        if (!sensorsActive) {
+                                            lastTimeOffBody = Calendar.getInstance().getTimeInMillis();
+                                            handleIsOffBodyReminder();
+                                        }
+
                                     }
                                     else bindSensorListeners();
                                     inOffBodyChangeEvent = false;

@@ -24,7 +24,7 @@ android {
         testFunctionalTest true
         testHandleProfiling true
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        testApplicationId 'uk.org.openseizuredetector.aw.androidWear'
+        testApplicationId 'uk.org.openseizuredetector.aw'
         testInstrumentationRunnerArguments useTestStorageService: 'true'
         testInstrumentationRunnerArgument "runnerBuilder", "de.mannodermaus.junit5.AndroidJUnit5Builder"
         // The following argument makes the Android Test Orchestrator run its

@@ -29,6 +29,7 @@ import static org.junit.Assert.assertTrue;
 import android.Manifest;
 import android.annotation.TargetApi;
 import android.app.ActivityManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import androidx.preference.PreferenceManager;
@@ -55,6 +56,10 @@ import android.widget.Toast;
 
 import androidx.annotation.RequiresApi;
 import androidx.core.content.ContextCompat;
+import androidx.work.ListenableWorker;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkManager;
+import androidx.work.WorkRequest;
 //uncommented due to deprication
 //import org.apache.http.conn.util.InetAddressUtils;
 
@@ -73,6 +78,7 @@ import java.util.Enumeration;
 import java.util.HashMap;
 //use java.Util.Objects as comparetool.
 import java.util.Objects;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
@@ -188,13 +194,26 @@ public class OsdUtil {
         Intent mServiceIntent;
         mServiceIntent = new Intent(mContext, AWSdService.class);
         mServiceIntent.setData(Uri.parse("Start"));
-        if (Build.VERSION.SDK_INT >= 26) {
-            Log.i(TAG, "Starting Foreground Service (Android 8 and above)");
-            mContext.startForegroundService(mServiceIntent);
+        int requestCode = mServiceIntent.hasExtra(Constants.GLOBAL_CONSTANTS.startId)?
+                mServiceIntent.getIntExtra(Constants.GLOBAL_CONSTANTS.startId,new Random().nextInt()):
+                -1;
+        //Intent serviceIntent = new Intent ( mContext, AWSdService.class );
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                Log.i(TAG, "Starting Foreground Service (Android 8 and above)");
+                PendingIntent pendingService = PendingIntent.getService(mContext, 1, mServiceIntent, PendingIntent.FLAG_ONE_SHOT |
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                pendingService.send();
+            }catch ( PendingIntent.CanceledException illegalExeptions ){
+                Log.e(TAG, "startServer(): ", illegalExeptions);
+            }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            mContext.startForegroundService ( mServiceIntent );
         } else {
             Log.i(TAG, "Starting Normal Service (Pre-Android 8)");
-            mContext.startService(mServiceIntent);
+            mContext.startService ( mServiceIntent );
         }
+
     }
 
     /**
