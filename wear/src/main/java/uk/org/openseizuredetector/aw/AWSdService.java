@@ -89,7 +89,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     private static final String CHANNEL_DEFAULT_IMPORTANCE = "2";
     private static int NSAMP = 0;
     private static List<String> channelIDs = new ArrayList<>();
-    // Notification ID
+    // Notifi9cation ID
     private final int NOTIFICATION_ID = 1;
     private final int EVENT_NOTIFICATION_ID = 2;
     private final int DATASHARE_NOTIFICATION_ID = 3;
