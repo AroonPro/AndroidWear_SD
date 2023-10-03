@@ -27,7 +27,6 @@ package uk.org.openseizuredetector.aw;
 import static org.junit.Assert.assertTrue;
 
 import android.Manifest;
-import android.annotation.TargetApi;
 import android.app.ActivityManager;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -54,12 +53,7 @@ import android.text.format.Time;
 import android.util.Log;
 import android.widget.Toast;
 
-import androidx.annotation.RequiresApi;
 import androidx.core.content.ContextCompat;
-import androidx.work.ListenableWorker;
-import androidx.work.OneTimeWorkRequest;
-import androidx.work.WorkManager;
-import androidx.work.WorkRequest;
 //uncommented due to deprication
 //import org.apache.http.conn.util.InetAddressUtils;
 
@@ -492,6 +486,17 @@ public class OsdUtil {
         } else {
             return amount * to.convert(1, from);
         }
+    }
+
+
+    /**
+     * Function to convert sensor acceleration from metres per
+     * second squared to milliGal(mGal)
+     * @param mms value in metres per second squared
+     * @return mms * math.pow(10,5}
+     */
+    public static double convertMetresPerSecondSquaredToMilliG(double mms){
+        return mms*Math.pow(10,5);
     }
 
     /**

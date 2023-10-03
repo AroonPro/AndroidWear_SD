@@ -1,6 +1,7 @@
 package uk.org.openseizuredetector.aw;
 
 
+import static com.google.android.gms.tasks.Tasks.await;
 import static java.lang.Math.sqrt;
 
 import android.Manifest;
@@ -15,6 +16,7 @@ import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -45,6 +47,7 @@ import androidx.core.app.NotificationCompat;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.LiveData;
 import androidx.multidex.BuildConfig;
+import androidx.preference.PreferenceManager;
 import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 import androidx.work.multiprocess.RemoteWorkerService;
@@ -91,6 +94,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     private final int EVENT_NOTIFICATION_ID = 2;
     private final int DATASHARE_NOTIFICATION_ID = 3;
     private final IBinder mBinder = new SdBinder();
+    private SharedPreferences sharedPreferences;
     public boolean requestCreateNewChannelAndInit;
     //public StartUpActivity.Connection parentConnection;
     public Context parentContext;
@@ -259,6 +263,17 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
         if (Objects.isNull(mSdData)) mSdData = new SdData();
         mUtil = new OsdUtil(this, mHandler);
         serviceLiveData = new ServiceLiveData();
+        sharedPreferences = PreferenceManager.getDefaultSharedPreferences(AWSdService.this);
+        if (sharedPreferences.contains(Constants.GLOBAL_CONSTANTS.destroyReasonOf+TAG))
+        {
+            Log.d(TAG, "(re)Constructed after being closed with reason: \n" +
+                    sharedPreferences.getString(Constants.GLOBAL_CONSTANTS.destroyReasonOf + TAG, ""));
+        }
+        if (sharedPreferences.contains(Constants.GLOBAL_CONSTANTS.destroyReasonOf+TAG+"onDestroy"))
+        {
+            Log.d(TAG, "(re)Constructed after being closed with reason: \n" +
+                    sharedPreferences.getString(Constants.GLOBAL_CONSTANTS.destroyReasonOf + TAG + "onDestroy", ""));
+        }
     }
 
 
@@ -447,21 +462,25 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                                                    Log.v(TAG, "startWatchApp() - Timer as Timeout, fires if not connected...");
                                                    if (Objects.nonNull(mNodeListClient) && !mSdData.serverOK) {
                                                        Log.v(TAG, "OnStartCommand(): We only get here, if Wear Watch starts OSD first.");
-                                                       connectedNodes = mNodeListClient.getConnectedNodes().getResult();
-                                                       if (connectedNodes.size() > 0) {
-                                                           for (Node node : connectedNodes) {
-                                                               Log.d(TAG, "OnStartCommand() - in client for initiation of device Paring with id " + node.getId() + " " + node.getDisplayName());
-                                                               mSdData.watchConnected = true;
-                                                               mSdData.watchAppRunning = true;
-                                                               mSdData.mDataType = "watchConnect";
-                                                               mMobileNodeUri = node.getId();
-                                                               mNodeFullName = node.getDisplayName();
-                                                               sendMessage(Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_DATA_RECEIVED, mSdData.toSettingsJSON());
-                                                               //TODO: Deside what to do with the population of id and name. Nou this is being treated
-                                                               // as broadcast to all client watches.
+                                                       try{
+                                                           connectedNodes = mNodeListClient.getConnectedNodes().getResult();
+                                                           if (connectedNodes.size() > 0) {
+                                                               for (Node node : connectedNodes) {
+                                                                   Log.d(TAG, "OnStartCommand() - in client for initiation of device Paring with id " + node.getId() + " " + node.getDisplayName());
+                                                                   mSdData.watchConnected = true;
+                                                                   mSdData.watchAppRunning = true;
+                                                                   mSdData.mDataType = "watchConnect";
+                                                                   mMobileNodeUri = node.getId();
+                                                                   mNodeFullName = node.getDisplayName();
+                                                                   sendMessage(Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_DATA_RECEIVED, mSdData.toSettingsJSON());
+                                                                   //TODO: Deside what to do with the population of id and name. Nou this is being treated
+                                                                   // as broadcast to all client watches.
+                                                               }
+                                                           } else {
+                                                               Log.e(TAG, "TimerTask/Run() :  no nodes found");
                                                            }
-                                                       } else {
-                                                           Log.e(TAG, "TimerTask/Run() :  no nodes found");
+                                                       }catch (Exception e){
+                                                           Log.e(TAG,"serviceRunner() timerTask() run(): " ,e);
                                                        }
                                                        //try shift
 
@@ -484,6 +503,10 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                     Constants.GLOBAL_CONSTANTS.mStopUri.equals(intentFromOnStart.getData()) ||
                     Constants.ACTION.STOP_WEAR_SD_ACTION.equals(intentFromOnStart.getAction())) {
                 Log.i(TAG, "Received Stop Foreground Intent");
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    sharedPreferences.edit().putString(Constants.GLOBAL_CONSTANTS.destroyReasonOf+TAG+"onDestroy", Thread.currentThread().getStackTrace().toString());
+                }
 
                 unBindBatteryEvents();
                 unBindSensorListeners();
@@ -886,14 +909,24 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             } else {
                 Log.d(TAG, "onCapabilityChanged(): count of set changedCapabilities: " + changedNodeSet.size());
                 mSdData.watchConnected = false;
-                //mSdData.serverOK = false;
+                //mSdData.serve0rOK = false;
             }
         } catch (Exception e) {
             Log.e(TAG, "onCapabilityChanged(): error", e);
         } finally {
+            signalUpdateUI();
             changedNodeSet = null;
             changedNode = null;
         }
+    }
+
+    public void signalUpdateUI() {
+        //and signal update UI
+        if (Objects.nonNull(serviceLiveData)){
+                if (serviceLiveData.hasActiveObservers()) {
+                    serviceLiveData.signalChangedData();
+                }
+            }
     }
 
 
@@ -1418,6 +1451,9 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     @Override
     public void onDestroy() {
         super.onDestroy();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            sharedPreferences.edit().putString(Constants.GLOBAL_CONSTANTS.destroyReasonOf+TAG+"onDestroy", Thread.currentThread().getStackTrace().toString());
+        }
         Log.v(TAG, "onDestroy()");
         try {
             if (mSensorManager != null) mSensorManager.unregisterListener(this);
@@ -1508,6 +1544,9 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                             sendMessage(Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_DATA, mSdData.toDataString(true));
                         }
                     } else if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+                        double x = OsdUtil.convertMetresPerSecondSquaredToMilliG(event.values[0] );
+                        double y = OsdUtil.convertMetresPerSecondSquaredToMilliG(event.values[1] );
+                        double z = OsdUtil.convertMetresPerSecondSquaredToMilliG(event.values[2] );;
                         // we initially start in mMode=0, which calculates the sample frequency returned by the sensor, then enters mMode=1, which is normal operation.
                         if (mMode == 0) {
                             if (mStartEvent == null) {
@@ -1526,7 +1565,8 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                                 mSdData.mSampleFreq = (int) (mSdData.mNsamp / mSdData.dT);
                                 mSdData.haveSettings = true;
                                 Log.v(TAG, "onSensorChanged(): Collected data for " + mSdData.dT + " sec - calculated sample rate as " + mSdData.mSampleFreq + " Hz");
-                                accelerationCombined = sqrt(event.values[0] * event.values[0] + event.values[1] * event.values[1] + event.values[2] * event.values[2]);
+
+                                accelerationCombined = sqrt(x * x + y * y + z * z);
                                 calculationStep  = 1;
                                 calculateStaticTimings();
                                 mMode = 1;
@@ -1571,10 +1611,6 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                                 mStartTs = event.timestamp;
                                 return;
                             } else if (!Objects.equals(rawDataList, null) && rawDataList.size() <= mCurrentMaxSampleCount) {
-
-                                float x = event.values[0];
-                                float y = event.values[1];
-                                float z = event.values[2];
                                 //Log.v(TAG,"Accelerometer Data Received: x="+x+", y="+y+", z="+z);
                                 rawDataList.add(sqrt(x * x + y * y + z * z));
                                 rawDataList3D.add((double) x);
@@ -1879,7 +1915,9 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     private void sendMessage(final String path, @NonNull final String text) {
         boolean returnResult = false;
         Log.v(TAG, "sendMessage(" + path + "," + text + ")");
-        final byte[] payload = (text.getBytes(StandardCharsets.UTF_8));
+        if (Objects.isNull(text)||Objects.isNull(path))
+            return;
+        //final byte[] payload = (text.getBytes(StandardCharsets.UTF_8));
         Task<Integer> sendMessageTask = null;
         if (mMobileNodeUri != null) {
             if (mMobileNodeUri.isEmpty()) {
@@ -1895,8 +1933,13 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                         "Sending message to "
                                 + mMobileNodeUri + " And name: " + mNodeFullName
                 );
-                sendMessageTask = Wearable.getMessageClient(this)
-                        .sendMessage(mMobileNodeUri, path, text.getBytes(StandardCharsets.UTF_8));
+                try{
+                    sendMessageTask = Wearable.getMessageClient(this)
+                            .sendMessage(mMobileNodeUri, path, text.getBytes(StandardCharsets.UTF_8));
+                }catch (NullPointerException nullPointerException){
+                    Log.e(TAG,"sendMessage(): tried to send message to path: " + path + " with content " +
+                            text,nullPointerException);
+                }
 
                 try {
                     // Asynchronous callback for result of sendMessageTask
