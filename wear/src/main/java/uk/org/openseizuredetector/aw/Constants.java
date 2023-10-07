@@ -2,6 +2,8 @@ package uk.org.openseizuredetector.aw;
 
 import android.net.Uri;
 
+import java.util.concurrent.TimeUnit;
+
 public class Constants {
     public interface GLOBAL_CONSTANTS {
         public final int ALARMS_OFF = 6;
@@ -48,7 +50,7 @@ public class Constants {
         public final String startIdWearSd = "startId_Sd_Wear_Sd";
         public final double maxHeartRefreshRate = 300d;//measured in , 60bpm equals 1Hz
         //equals 1/s seconds = 400ms  , 300bpm is unlikely but will translate to 300Hz 1/300
-        public final double getMaxHeartRefreshRate = (1d / (maxHeartRefreshRate / 60d)) * 1000;
+        public final double getMaxHeartRefreshRate = OsdUtil.convertTimeUnit(1d / maxHeartRefreshRate ,TimeUnit.SECONDS,TimeUnit.MICROSECONDS);
         public final boolean debugStartAllowed = true;
     }
 

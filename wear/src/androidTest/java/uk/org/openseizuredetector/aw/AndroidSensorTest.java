@@ -37,9 +37,18 @@ import java.util.concurrent.TimeoutException;
 import kotlin.jvm.functions.Function1;
 
 
+import org.junit.runner.Description;
+import org.junit.runner.Result;
+import org.junit.runner.notification.Failure;
+import org.junit.runner.notification.RunListener;
+import org.junit.runner.notification.RunNotifier;
+
+
 public class AndroidSensorTest {
     private Sensor testingSensor;
     private final CyclicBarrier cyclicBarrier = new CyclicBarrier(1);
+    private MotionDetectSensor motionDetectSensor;
+    private AccelerationSensor accelerationSensor;
 
     public AndroidSensorTest(){
     }
@@ -60,6 +69,8 @@ public class AndroidSensorTest {
     String TAG = this.getClass().getName();
     private  SensorManager sensorManager ;
     List<Sensor> deviceSensors ;
+    JUnitExecutionListener notifier = new JUnitExecutionListener();
+
 
     int[] sensorsToTest = {
             Sensor.TYPE_ALL,
@@ -97,6 +108,7 @@ public class AndroidSensorTest {
             Sensor.TYPE_STEP_COUNTER,
             Sensor.TYPE_STEP_DETECTOR,
     };
+
 
     @BeforeEach
     void initOsdUtil(){
@@ -171,7 +183,7 @@ public class AndroidSensorTest {
             }
             androidSensor = null;
         }
-        androidSensor = new MotionDetectSensor(context,3,9) {
+        motionDetectSensor = new MotionDetectSensor(context,3,9) {
             @Nullable
             @Override
             public void onSensorValuesChanged(SensorEvent event) {
@@ -353,7 +365,6 @@ public class AndroidSensorTest {
 
     @Test
     public void testSensorAccelleration(){
-        AccelerationSensor accelerationSensor = null;
         if (Objects.isNull(accelerationSensor))
             accelerationSensor= new AccelerationSensor(context,(int)4e4,(int)4e4*6) {
             @Nullable
@@ -513,3 +524,5 @@ public class AndroidSensorTest {
         }
     }
 }
+
+

@@ -8,15 +8,18 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.os.Build;
 import android.os.Handler;
 import android.util.Log;
 
 import androidx.core.app.ActivityCompat;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
 abstract class AndroidSensor implements MeasurableSensor, SensorEventListener {
+    private final String TAG = this.getClass().getName();
     private Context mContext = null;
     String mSensorFeature = null;
     int mSensorType = 0;
@@ -125,6 +128,7 @@ AndroidSensor(Context context,
 
     @Override
     public void startListening() {
+        Log.d(TAG,"AndroidSensor( StartListening() starting with typeId: "+ mSensorType);
         if (!getDoesSensorExist() || isSensorListening){
             return;
         }
@@ -132,7 +136,7 @@ AndroidSensor(Context context,
                 return;
         if (Objects.isNull(sensor)){
 
-            sensor = sensorManager.getDefaultSensor(mSensorType);
+            sensor = sensorManager.getDefaultSensor(mSensorType,false);
         }
         if (Objects.nonNull(sensor)){
             if (!getHasSensorPermissionGranted() && mContext instanceof Activity)
@@ -148,8 +152,12 @@ AndroidSensor(Context context,
             }
             isSensorListening = sensorManager.registerListener(this,sensor, mSensorSamplingPeriodUs, mSensorMaxReportLatencyUs);
             Log.d(this.getClass().getName(), "Exiting startListening() with status: " + isSensorListening);
+        }else
+        {
+            Log.e(TAG,"AndroidSensor(): startListening(): getDefaultSensor with type: " + mSensorType + " failed.",new Throwable( Arrays.stream(Thread.currentThread().getStackTrace()).toString()));
         }
     }
+
 
     @Override
     public void stopListening() {

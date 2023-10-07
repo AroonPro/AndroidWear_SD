@@ -100,13 +100,74 @@ abstract class OffBodyDetectSensor extends AndroidSensor {
                        int sensorDefaultSampleTimeUs,
                        int sensorDefaultMeasurementReportLatency) {
         super(context,
-                PackageManager.FEATURE_SENSOR_HINGE_ANGLE,
+                PackageManager.FEATURE_SENSOR_PROXIMITY,
                 Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT,
                 sensorDefaultSampleTimeUs,
                 sensorDefaultMeasurementReportLatency);
     }
 
+
+
+}
+
+abstract class ProximitySensor extends AndroidSensor {
+    ProximitySensor(Context context,
+                    int sensorDefaultSampleTimeUs,
+                    int sensorDefaultMeasurementReportLatency) {
+
+        super(context,
+                PackageManager.FEATURE_SENSOR_PROXIMITY,
+                Sensor.TYPE_PROXIMITY,
+                sensorDefaultSampleTimeUs,
+                sensorDefaultMeasurementReportLatency);
+
+    }
+}
+
+abstract class LightSensor extends AndroidSensor {
+    LightSensor (Context context,
+                 int sensorDefaultSampleTimeUs,
+                 int sensorDefaultMeasurementReportLatency){
+        super(context,
+                PackageManager.FEATURE_SENSOR_LIGHT,
+                Sensor.TYPE_LIGHT,
+                sensorDefaultSampleTimeUs,
+                sensorDefaultMeasurementReportLatency);
+    }
+}
+abstract class AmbientTemperatureSensor extends AndroidSensor {
+    AmbientTemperatureSensor (Context context,
+                 int sensorDefaultSampleTimeUs,
+                 int sensorDefaultMeasurementReportLatency){
+        super(context,
+                PackageManager.FEATURE_SENSOR_AMBIENT_TEMPERATURE,
+                Sensor.TYPE_AMBIENT_TEMPERATURE,
+                sensorDefaultSampleTimeUs,
+                sensorDefaultMeasurementReportLatency);
+    }
 }
 
 
+abstract class StationaryDetectSensor extends AndroidSensor {
+    StationaryDetectSensor (Context context,
+                 int sensorDefaultSampleTimeUs,
+                 int sensorDefaultMeasurementReportLatency){
+        super(context,
+                PackageManager.FEATURE_SENSOR_ACCELEROMETER,
+                Sensor.TYPE_STATIONARY_DETECT,
+                sensorDefaultSampleTimeUs,
+                sensorDefaultMeasurementReportLatency);
+    }
+}
 
+abstract class EnvironmentalPressureSensor extends AndroidSensor {
+    EnvironmentalPressureSensor (Context context,
+                                 int sensorDefaultSampleTimeUs,
+                                 int sensorDefaultMeasurementReportLatency) {
+        super(context,
+                PackageManager.FEATURE_SENSOR_BAROMETER,
+                Sensor.TYPE_PRESSURE,
+                sensorDefaultSampleTimeUs,
+                sensorDefaultMeasurementReportLatency);
+    }
+}
