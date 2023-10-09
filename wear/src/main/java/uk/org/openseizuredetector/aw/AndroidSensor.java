@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Objects;
 
 abstract class AndroidSensor implements MeasurableSensor, SensorEventListener {
+
     private final String TAG = this.getClass().getName();
     private Context mContext = null;
     String mSensorFeature = null;
@@ -87,6 +88,14 @@ AndroidSensor(Context context,
         boolean featureMatches = false;
         if (!isSensorManagerInitialised)
             return false;
+
+        if (PackageManager.FEATURE_SENSOR_HEART_RATE.equals(mSensorFeature)) {
+            mSensorFeature = !Objects.equals(Build.BOARD, Constants.GLOBAL_CONSTANTS.WEAR_EMULATED_IDENTIFIER) ? PackageManager.FEATURE_SENSOR_HEART_RATE :
+                    PackageManager.FEATURE_SENSOR_HEART_RATE.replace(".hardware.sensor.heartrate", ".sensor.heart_rate");
+        }
+        //Check here if we are dealing with Android Round Wear Qemu virtual device.
+        //Here the check if the feature exists in the list of found features breaks premature.
+        //This solution is at this moment the cleanest.
         for (Sensor sensor1: availableSensors){
             if (sensor1.getStringType().equals(mSensorFeature)) {
                 featureMatches = true;
@@ -136,7 +145,7 @@ AndroidSensor(Context context,
                 return;
         if (Objects.isNull(sensor)){
 
-            sensor = sensorManager.getDefaultSensor(mSensorType,false);
+            sensor = sensorManager.getDefaultSensor(mSensorType);
         }
         if (Objects.nonNull(sensor)){
             if (!getHasSensorPermissionGranted() && mContext instanceof Activity)
@@ -154,7 +163,11 @@ AndroidSensor(Context context,
             Log.d(this.getClass().getName(), "Exiting startListening() with status: " + isSensorListening);
         }else
         {
-            Log.e(TAG,"AndroidSensor(): startListening(): getDefaultSensor with type: " + mSensorType + " failed.",new Throwable( Arrays.stream(Thread.currentThread().getStackTrace()).toString()));
+            try {
+                Log.e(TAG, "AndroidSensor(): startListening(): getDefaultSensor with type: " + mSensorType + " failed.", new Throwable(Arrays.stream(Thread.currentThread().getStackTrace()).toString()));
+            }catch (Throwable throwable){
+                //empty pass
+            }
         }
     }
 

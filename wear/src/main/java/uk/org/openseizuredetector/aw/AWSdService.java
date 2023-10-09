@@ -134,6 +134,11 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     private ProximitySensor mProximitySensor;
     private LightSensor mLightSensor;
     private OffBodyDetectSensor mOffBodySensor;
+    private AccelerationSensor accelerationSensor ;
+    private HeartRateSensor heartRateSensor;
+    private HeartBeatSensor heartBeatSensor;
+    private MotionDetectSensor motionDetectSensor;
+    private ProximitySensor proximitySensor;
     private boolean isInCloseProximity;
     private boolean isDark;
     private boolean isOffBody = false;
@@ -235,7 +240,6 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     private int chargePlug = 0;
     private boolean usbCharge = false;
     private boolean acCharge = false;
-    private boolean sensorsActive = false;
     private IntentFilter batteryStatusIntentFilter = null;
     private Intent batteryStatusIntent;
     private Thread mBlockingThread = null;
@@ -245,11 +249,6 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     private PowerUpdateReceiver powerUpdateReceiverPowerUpdated = null;
     private PowerUpdateReceiver powerUpdateReceiverPowerLow = null;
     private PowerUpdateReceiver powerUpdateReceiverPowerOkay = null;
-    private AccelerationSensor accelerationSensor ;
-    private HeartRateSensor heartRateSensor;
-    private HeartBeatSensor heartBeatSensor;
-    private MotionDetectSensor motionDetectSensor;
-    private ProximitySensor proximitySensor;
     private int mHeartRatesCount;
     private List<Node> connectedNodes;
 
@@ -440,7 +439,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
 
                 Log.v(TAG, "onStartCommand() - checking permission for sensors and registering");
 
-                if (mSdData.serverOK && !sensorsActive) bindSensorListeners();
+                if (mSdData.serverOK ) bindSensorListeners();
 
 
                 //mAccData = new double[NSAMP];
@@ -466,25 +465,35 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                                            public void run() {
                                                try {
                                                    Log.v(TAG, "startWatchApp() - Timer as Timeout, fires if not connected...");
-                                                   if (Objects.nonNull(mNodeListClient) && !mSdData.serverOK) {
+                                                   if (Objects.nonNull(mNodeListClient) && !mSdData.serverOK && Objects.isNull(connectedNodes)) {
                                                        Log.v(TAG, "OnStartCommand(): We only get here, if Wear Watch starts OSD first.");
                                                        try{
-                                                           connectedNodes = mNodeListClient.getConnectedNodes().getResult();
-                                                           if (connectedNodes.size() > 0) {
-                                                               for (Node node : connectedNodes) {
-                                                                   Log.d(TAG, "OnStartCommand() - in client for initiation of device Paring with id " + node.getId() + " " + node.getDisplayName());
-                                                                   mSdData.watchConnected = true;
-                                                                   mSdData.watchAppRunning = true;
-                                                                   mSdData.mDataType = "watchConnect";
-                                                                   mMobileNodeUri = node.getId();
-                                                                   mNodeFullName = node.getDisplayName();
-                                                                   sendMessage(Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_DATA_RECEIVED, mSdData.toSettingsJSON());
-                                                                   //TODO: Deside what to do with the population of id and name. Nou this is being treated
-                                                                   // as broadcast to all client watches.
-                                                               }
-                                                           } else {
-                                                               Log.e(TAG, "TimerTask/Run() :  no nodes found");
-                                                           }
+                                                           Task<List<Node>>connectedNodesTask = mNodeListClient.getConnectedNodes();
+                                                           connectedNodesTask.addOnCompleteListener(connectedNodesResult -> {
+                                                               Log.v(TAG,"serviceRunner() TimerTask() Run(): Completed node search task" +
+                                                                       " with result: Success: " + connectedNodesResult.isSuccessful() + "Canceled: " + connectedNodesResult.isCanceled() );
+                                                               if (connectedNodesResult.isSuccessful()){
+                                                                   connectedNodes = connectedNodesResult.getResult();
+                                                                   if (connectedNodesResult.getResult().size() > 0) {
+                                                                       for (Node node : connectedNodes) {
+                                                                           Log.d(TAG, "OnStartCommand() - in client for initiation of device Paring with id " + node.getId() + " " + node.getDisplayName());
+                                                                           mSdData.watchConnected = true;
+                                                                           mSdData.watchAppRunning = true;
+                                                                           mSdData.mDataType = "watchConnect";
+                                                                           mMobileNodeUri = node.getId();
+                                                                           mNodeFullName = node.getDisplayName();
+                                                                           mSdData.serverOK = true;
+                                                                           mMobileDeviceConnected = true;
+                                                                           sendMessage(Constants.ACTION.PULL_SETTINGS_ACTION,"");
+                                                                           //sendMessage(Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_DATA_RECEIVED, mSdData.toSettingsJSON());
+                                                                           mUtil.runOnUiThread(()->signalUpdateUI());
+                                                                           //TODO: Decide what to do with the population of id and name. Nou this is being treated
+                                                                           // as broadcast to all client watches.
+                                                                       }
+                                                                   } else {
+                                                                       Log.e(TAG, "TimerTask/Run() :  no nodes found");
+                                                                   }
+                                                               }});
                                                        }catch (Exception e){
                                                            Log.e(TAG,"serviceRunner() timerTask() run(): " ,e);
                                                        }
@@ -502,7 +511,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                                            }
 
                                        }
-                        , 5000); //end timerTask
+                        , (long) OsdUtil.convertTimeUnit(5,TimeUnit.SECONDS,TimeUnit.MILLISECONDS)); //end timerTask
 
 
             } else if (Constants.ACTION.STOPFOREGROUND_ACTION.equals(intentFromOnStart.getAction()) ||
@@ -783,7 +792,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
         } else if ((!messageEventPath.isEmpty()) && Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_TEST_RECEIVED.equals(messageEventPath)) {
             //TODO
         } else if ((!messageEventPath.isEmpty()) && Constants.GLOBAL_CONSTANTS.MESSAGE_OSD_FUNCTION_RESTART.equals(messageEventPath)) {
-            if (sensorsActive) unBindSensorListeners();
+            unBindSensorListeners();
             if (calculateStaticTimings() ) {
                 if (!isCharging()){
                     bindSensorListeners();
@@ -828,7 +837,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 mMobileDeviceConnected = true;
 
 
-                if (sensorsActive) unBindSensorListeners();
+                unBindSensorListeners();
                 bindSensorListeners();
 
                 sendMessage(Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_DATA_RECEIVED, mSdData.toSettingsJSON());
@@ -862,7 +871,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
 
                 mSdData = sdData;
                 mSdDataSettings = sdData;
-                if (sensorsActive) unBindSensorListeners();
+                unBindSensorListeners();
                 if (calculateStaticTimings()) {
                     if (!isCharging() || Constants.GLOBAL_CONSTANTS.debugStartAllowed)
                         bindSensorListeners();
@@ -1108,7 +1117,9 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                             @Nullable
                             @Override
                             public void onSensorValuesChanged(SensorEvent event) {
-                                accelerationEvent(event);
+                                mUtil.runOnUiThread(
+                                        ()->accelerationEvent(event)
+                                );
                             }
 
                             @Override
@@ -1123,7 +1134,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                         };
                     }
                     if (!accelerationSensor.isSensorListening())
-                        mUtil.runOnUiThread(()->accelerationSensor.startListening());
+                        accelerationSensor.startListening();
 
                     if (Objects.isNull(proximitySensor))
                         proximitySensor = new ProximitySensor(this,(int) Constants.GLOBAL_CONSTANTS.getMaxHeartRefreshRate,
@@ -1163,7 +1174,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                             @Nullable
                             @Override
                             public void onSensorValuesChanged(SensorEvent event) {
-                                spO2SensorChanged(event);
+                                mUtil.runOnUiThread(()->spO2SensorChanged(event));
                             }
 
                             @Override
@@ -1178,7 +1189,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                         };
                     }
                     if (!samsungWearSpO2Sensor.isSensorListening())
-                        mUtil.runOnUiThread(()->samsungWearSpO2Sensor.startListening());
+                        samsungWearSpO2Sensor.startListening();
 
                     if (Objects.isNull(heartRateSensor)) {
                         heartRateSensor = new HeartRateSensor((Context) this,
@@ -1200,9 +1211,16 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
 
                             }
                         };
+
                     }
-                    if (!heartRateSensor.isSensorListening())
-                        mUtil.runOnUiThread(()->heartRateSensor.startListening());
+                    if (Objects.nonNull(heartRateSensor)) {
+                        if (!heartRateSensor.isSensorListening())
+                            try {
+                                heartRateSensor.startListening();
+                            } catch (Throwable throwable) {
+                                Log.e(TAG, "bindSensorListeners() heartRateSensor.startListening()", throwable);
+                            }
+                    }
 
                     if (Objects.isNull(heartBeatSensor)) {
                         heartBeatSensor = new HeartBeatSensor((Context) this,
@@ -1225,9 +1243,16 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                             }
                         };
                     }
-                    if (!heartBeatSensor.isSensorListening())
-                        mUtil.runOnUiThread(()->heartBeatSensor.startListening());
-                    if (Objects.isNull(mOffBodySensor))
+
+                    if (Objects.nonNull(heartBeatSensor)){
+                        if (!heartBeatSensor.isSensorListening())
+                            try {
+                                    heartBeatSensor.startListening();
+                                }catch (Throwable throwable){
+                                    Log.e(TAG,"bindSensorListeners() heartBeatSensor.startListening()",throwable);
+                                }
+                    }
+                    if (Objects.isNull(mOffBodySensor) && !Build.BOARD.equals(Constants.GLOBAL_CONSTANTS.WEAR_EMULATED_IDENTIFIER))
                         mOffBodySensor = new OffBodyDetectSensor(this, (int) mSampleTimeUs, (int) mSampleTimeUs * 3) {
                             /**
                              * @param event
@@ -1254,10 +1279,14 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
 
                             }
                         };
-                    if (Objects.nonNull(mOffBodySensor))
+                    if (Objects.nonNull(mOffBodySensor) && !Build.BOARD.equals(Constants.GLOBAL_CONSTANTS.WEAR_EMULATED_IDENTIFIER))
                     {
                         if (!mOffBodySensor.isSensorListening()){
-
+                            try {
+                                    mOffBodySensor.startListening();
+                                }catch (Throwable throwable){
+                                    Log.e(TAG,"bindSensorListeners() heartBeatSensor.startListening()",throwable);
+                                }
                         }
                     }
                     if (Objects.isNull(mLightSensor)){
@@ -1282,15 +1311,21 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
 
                     if (!inOffBodyChangeEvent) {
 
-                        if (!mOffBodySensor.isSensorListening())
-                            mOffBodySensor.startListening();
-                        if (!mLightSensor.isSensorListening())
-                            mLightSensor.startListening();
+
+                        if (Objects.nonNull(mOffBodySensor) && !Build.BOARD.equals(Constants.GLOBAL_CONSTANTS.WEAR_EMULATED_IDENTIFIER)) {
+                            if (!mOffBodySensor.isSensorListening())
+                                mOffBodySensor.startListening();
+                        }
+
+                        if (Objects.nonNull(mLightSensor)) {
+                            if (!mLightSensor.isSensorListening())
+                                mLightSensor.startListening();
+                        }
+
                         if (Objects.nonNull(proximitySensor)){
                             if (!proximitySensor.isSensorListening())
-                                mUtil.runOnUiThread(() -> proximitySensor.startListening());
+                                proximitySensor.startListening();
                         }
-                        sensorsActive = true;
                         unBindBatteryEvents();
                         bindBatteryEvents();
                         mSdData.watchAppRunning = true;
@@ -1306,18 +1341,19 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     }
 
     private void unBindSensorListeners() {
-        if (Objects.nonNull(accelerationSensor))
-            accelerationSensor.stopListening();
         if (Objects.nonNull(heartBeatSensor))
-            heartBeatSensor.stopListening();
+            if (heartRateSensor.isSensorListening())
+                heartBeatSensor.stopListening();
         if (Objects.nonNull(mAmbientTemperatureSensor))
-            mAmbientTemperatureSensor.stopListening();
-        if (Objects.nonNull(mAmbientTemperatureSensor))
-            mAmbientTemperatureSensor.stopListening();
+            if (mAmbientTemperatureSensor.isSensorListening())
+                mAmbientTemperatureSensor.stopListening();
         if (Objects.nonNull(mStationaryDetectSensor))
+            if (mStationaryDetectSensor.isSensorListening())
             mStationaryDetectSensor.stopListening();
 
-        if (!inOffBodyChangeEvent){
+        if (!inOffBodyChangeEvent||!isInPocket){
+            if (Objects.nonNull(accelerationSensor))
+                accelerationSensor.stopListening();
             if (Objects.nonNull(mOffBodySensor) )
                 if (mOffBodySensor.isSensorListening())
                     mOffBodySensor.stopListening();
@@ -1327,15 +1363,13 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             if (Objects.nonNull(mLightSensor))
                 if (mLightSensor.isSensorListening())
                     mLightSensor.stopListening();
-        }
-        if (!isInPocket){
             if (Objects.nonNull(heartRateSensor))
-                heartRateSensor.stopListening();
+                if (heartBeatSensor.isSensorListening())
+                    heartRateSensor.stopListening();
             if (Objects.nonNull(samsungWearSpO2Sensor))
                 if (samsungWearSpO2Sensor.isSensorListening())
                     samsungWearSpO2Sensor.stopListening();
         }
-        sensorsActive = false;
 
     }
 
@@ -1391,13 +1425,13 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                     usbCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_USB;
                     acCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_AC;
 
-                    if (mIsCharging && sensorsActive && Intent.ACTION_POWER_CONNECTED.equals(intent.getAction())) {
+                    if (mIsCharging && Intent.ACTION_POWER_CONNECTED.equals(intent.getAction())) {
                         {
                             unBindSensorListeners();
                             sendMessage(Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_DATA, mSdData.toSettingsJSON());
                         }
                     }
-                    if (!mIsCharging && mMobileDeviceConnected && !sensorsActive && Intent.ACTION_POWER_DISCONNECTED.equals(intent.getAction()))
+                    if (!mIsCharging && mMobileDeviceConnected && Intent.ACTION_POWER_DISCONNECTED.equals(intent.getAction()))
                         bindSensorListeners();
 
                 }
@@ -1420,9 +1454,9 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                     acCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_AC;
                     boolean batcap = chargePlug == BatteryManager.BATTERY_PROPERTY_CAPACITY;
                     boolean wirelessCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_WIRELESS;
-                    if (mIsCharging && sensorsActive && Intent.ACTION_POWER_CONNECTED.equals(intent.getAction()))
+                    if (mIsCharging  && Intent.ACTION_POWER_CONNECTED.equals(intent.getAction()))
                         unBindSensorListeners();
-                    if (!mIsCharging && mMobileDeviceConnected && mBound && !sensorsActive && Intent.ACTION_POWER_DISCONNECTED.equals(intent.getAction()))
+                    if (!mIsCharging && mMobileDeviceConnected && mBound && Intent.ACTION_POWER_DISCONNECTED.equals(intent.getAction()))
                         bindSensorListeners();
                     if (mMobileDeviceConnected)
                         sendMessage(Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_DATA, mSdData.toSettingsJSON());
@@ -1431,7 +1465,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 if (intent.getAction().equals(Intent.ACTION_BATTERY_LOW) ||
                         intent.getAction().equals(Intent.ACTION_BATTERY_OKAY)) {
 
-                    if (sensorsActive && batteryPct < 15f)
+                    if (batteryPct < 15f)
                         unBindSensorListeners();
                 }
                 if (mBound) {
@@ -1653,32 +1687,35 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     }
 
     public void heartRateEvent(SensorEvent event){
-        int newValue = Math.round(event.values[0]);
-        //Log.d(LOG_TAG,sensorEvent.sensor.getName() + " changed to: " + newValue);
-        // only do something if the value differs from the value before and the value is not 0.
-        if (mSdData.mHR != newValue && newValue != 0) {
-            // save the new value
-            mSdData.mHR = newValue;
-            // add it to the list and computer a new average
-            if (heartRates.size() == 10) {
-                heartRates.remove(0);
+        if (Sensor.TYPE_HEART_RATE == event.sensor.getType()){
+            int newValue = Math.round(event.values[0]);
+            //Log.d(LOG_TAG,sensorEvent.sensor.getName() + " changed to: " + newValue);
+            // only do something if the value differs from the value before and the value is not 0.
+            if (mSdData.mHR != newValue && newValue != 0) {
+                // save the new value
+                mSdData.mHR = newValue;
+                // add it to the list and computer a new average
+                if (heartRates.size() == 10) {
+                    heartRates.remove(0);
+
+                }
+                if ((Integer.MAX_VALUE - 1) == mHeartRatesCount)
+                    mHeartRatesCount = heartRates.size();
+                mHeartRatesCount++;
+                heartRates.add(mSdData.mHR);
 
             }
-            if ((Integer.MAX_VALUE -1) == mHeartRatesCount)
-                mHeartRatesCount = heartRates.size();
-            mHeartRatesCount++;
-            heartRates.add(mSdData.mHR);
-
-        }
-        mSdData.mHRAvg = calculateAverage(heartRates);
-        if (heartRates.size() < 4) {
-            mSdData.mHRAvg = 0;
-        }
-        checkAlarm();
-        if(mHeartRatesCount %10 == 0 ) {
-            mSdData.mDataType = Constants.GLOBAL_CONSTANTS.dataTypeRaw;
-            mSdData.haveData = true;
-            sendMessage(Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_DATA, mSdData.toDataString(true));
+            mSdData.mHRAvg = calculateAverage(heartRates);
+            if (heartRates.size() < 4) {
+                mSdData.mHRAvg = 0;
+            }
+            checkAlarm();
+            if (mHeartRatesCount % 10 == 0) {
+                mSdData.mDataType = Constants.GLOBAL_CONSTANTS.dataTypeRaw;
+                mSdData.haveData = true;
+                sendMessage(Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_DATA, mSdData.toDataString(true));
+                signalUpdateUI();
+            }
         }
 
     }
@@ -1691,7 +1728,8 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
         checkCurrentPowerLevels();
         double x = OsdUtil.convertMetresPerSecondSquaredToMilliG(event.values[0] );
         double y = OsdUtil.convertMetresPerSecondSquaredToMilliG(event.values[1] );
-        double z = OsdUtil.convertMetresPerSecondSquaredToMilliG(event.values[2] );;
+        double z = OsdUtil.convertMetresPerSecondSquaredToMilliG(event.values[2] );
+        accelerationCombined = Math.pow(x * x + y * y + z * z,1d/3d);
         // we initially start in mMode=0, which calculates the sample frequency returned by the sensor, then enters mMode=1, which is normal operation.
         if (mMode == 0) {
             if (mStartEvent == null) {
@@ -1711,7 +1749,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 mSdData.haveSettings = true;
                 Log.v(TAG, "onSensorChanged(): Collected data for " + mSdData.dT + " sec - calculated sample rate as " + mSdData.mSampleFreq + " Hz");
 
-                accelerationCombined = sqrt(x * x + y * y + z * z);
+
                 calculationStep  = 1;
                 calculateStaticTimings();
                 mMode = 1;
@@ -1738,10 +1776,10 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 for (int i = 0; i < Constants.SD_SERVICE_CONSTANTS.defaultSampleCount; i++) {
                     readPosition = (int) (i / mConversionSampleFactor);
                     if (readPosition < rawDataList.size()) {
-                        mSdData.rawData[i] = gravityScaleFactor  * rawDataList.get(readPosition) ;
-                        mSdData.rawData3D[i] = gravityScaleFactor  * rawDataList3D.get(readPosition) ;
-                        mSdData.rawData3D[i + 1] = gravityScaleFactor * rawDataList3D.get(readPosition + 1) ;
-                        mSdData.rawData3D[i + 2] = gravityScaleFactor * rawDataList3D.get(readPosition + 2) ;
+                        mSdData.rawData[i] =  rawDataList.get(readPosition) ;
+                        mSdData.rawData3D[i] = rawDataList3D.get(readPosition) ;
+                        mSdData.rawData3D[i + 1] =  rawDataList3D.get(readPosition + 1) ;
+                        mSdData.rawData3D[i + 2] = rawDataList3D.get(readPosition + 2) ;
                         //Log.v(TAG,"i="+i+", rawData="+mSdData.rawData[i]+","+mSdData.rawData[i/2]);
                     }
                 }
@@ -1756,7 +1794,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 return;
             } else if (!Objects.equals(rawDataList, null) && rawDataList.size() <= mCurrentMaxSampleCount) {
                 //Log.v(TAG,"Accelerometer Data Received: x="+x+", y="+y+", z="+z);
-                rawDataList.add(sqrt(x * x + y * y + z * z));
+                rawDataList.add(accelerationCombined);
                 rawDataList3D.add((double) x);
                 rawDataList3D.add((double) y);
                 rawDataList3D.add((double) z);
@@ -1796,10 +1834,8 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 inOffBodyChangeEvent = true;
                 if (isOffBody && ! isInPocket) {
                     unBindSensorListeners();
-                    if (!sensorsActive) {
-                        lastTimeOffBody = Calendar.getInstance().getTimeInMillis();
-                        handleIsOffBodyReminder();
-                    }
+                    lastTimeOffBody = Calendar.getInstance().getTimeInMillis();
+                    handleIsOffBodyReminder();
 
                 }
                 else bindSensorListeners();
@@ -2070,10 +2106,13 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     }
 
     private void handleIsOffBodyReminder(){
-        if (isOffBody && !isCharging() ){
+        if (isOffBody && !isCharging() && !isInPocket ){
             vibrate();
             mHandler.postDelayed(()->handleIsOffBodyReminder(),TimeUnit.SECONDS.toMillis(10));
         }
+        isInPocket=isDark&&isOffBody&&!isCharging()&&isInCloseProximity;
+
+
 
     }
 

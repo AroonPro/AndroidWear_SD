@@ -6,6 +6,7 @@ import java.util.concurrent.TimeUnit;
 
 public class Constants {
     public interface GLOBAL_CONSTANTS {
+        public static final String WEAR_EMULATED_IDENTIFIER = "goldfish_x86";
         public final int ALARMS_OFF = 6;
         public final int ALARMS_ON = 0;
         public static final int PERMISSION_REQUEST_BODY_SENSORS = 16;

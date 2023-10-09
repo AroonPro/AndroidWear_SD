@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.os.Build;
+import android.system.Os;
 import android.util.Log;
 
 
@@ -26,7 +27,8 @@ abstract class HeartRateSensor extends AndroidSensor {
                     int sensorDefaultSampleTimeUs,
                     int sensorDefaultMeasurementReportLatency) {
         super(context,
-                PackageManager.FEATURE_SENSOR_HEART_RATE,
+                PackageManager.FEATURE_SENSOR_HEART_RATE
+                ,
                 new String[]{
                         Manifest.permission.BODY_SENSORS,
                         Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU?Manifest.permission.BODY_SENSORS_BACKGROUND:"",

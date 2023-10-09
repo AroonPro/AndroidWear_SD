@@ -41,6 +41,7 @@ import android.database.DatabaseUtils;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.hardware.SensorManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
@@ -496,7 +497,7 @@ public class OsdUtil {
      * @return mms * math.pow(10,5}
      */
     public static double convertMetresPerSecondSquaredToMilliG(double mms){
-        return mms*Math.pow(10,5);
+        return (mms/ SensorManager.GRAVITY_EARTH) *Math.pow(10,5);
     }
 
     /**
