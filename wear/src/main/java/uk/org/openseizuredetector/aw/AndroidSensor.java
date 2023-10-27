@@ -31,7 +31,7 @@ abstract class AndroidSensor implements MeasurableSensor, SensorEventListener {
     private String[] mSensorPermissions;
     private boolean successUnRegister;
 
-    private List<Sensor> availableSensors;
+
 
     AndroidSensor(Context context,
                   String sensorFeature,
@@ -76,10 +76,10 @@ AndroidSensor(Context context,
     }
 
     private void initialiseSensorManager()
-    {   sensorManager = (SensorManager) mContext.getSystemService(Context.SENSOR_SERVICE);
-        isSensorManagerInitialised = sensorManager != null;
-        assert sensorManager != null;
-        availableSensors = sensorManager.getSensorList(Sensor.TYPE_ALL);
+    {   OsdUtil.sensorManager = (SensorManager) mContext.getSystemService(Context.SENSOR_SERVICE);
+        isSensorManagerInitialised = OsdUtil.sensorManager != null;
+        assert OsdUtil.sensorManager != null;
+        OsdUtil.availableSensors = OsdUtil.sensorManager.getSensorList(Sensor.TYPE_ALL);
         Log.d(this.getClass().getName(),"Filled availableSensors");
     }
 
@@ -96,7 +96,7 @@ AndroidSensor(Context context,
         //Check here if we are dealing with Android Round Wear Qemu virtual device.
         //Here the check if the feature exists in the list of found features breaks premature.
         //This solution is at this moment the cleanest.
-        for (Sensor sensor1: availableSensors){
+        for (Sensor sensor1: OsdUtil.availableSensors){
             if (sensor1.getStringType().equals(mSensorFeature)) {
                 featureMatches = true;
                 break;
@@ -139,13 +139,15 @@ AndroidSensor(Context context,
     public void startListening() {
         Log.d(TAG,"AndroidSensor( StartListening() starting with typeId: "+ mSensorType);
         if (!getDoesSensorExist() || isSensorListening){
+            Log.e(TAG,"startListening() failed with: getDoesSensorExist(): "+
+                    getDoesSensorExist() + " and isSensorListening: " + isSensorListening + " in: \n" + Arrays.toString(Thread.currentThread().getStackTrace()));
             return;
         }
         if (!isSensorManagerInitialised)
                 return;
         if (Objects.isNull(sensor)){
 
-            sensor = sensorManager.getDefaultSensor(mSensorType);
+            sensor = OsdUtil.sensorManager.getDefaultSensor(mSensorType);
         }
         if (Objects.nonNull(sensor)){
             if (!getHasSensorPermissionGranted() && mContext instanceof Activity)
@@ -159,8 +161,8 @@ AndroidSensor(Context context,
                     }
                 }
             }
-            isSensorListening = sensorManager.registerListener(this,sensor, mSensorSamplingPeriodUs, mSensorMaxReportLatencyUs);
-            Log.d(this.getClass().getName(), "Exiting startListening() with status: " + isSensorListening);
+            isSensorListening = OsdUtil.sensorManager.registerListener(this,sensor, mSensorSamplingPeriodUs, mSensorMaxReportLatencyUs);
+            Log.d(this.getClass().getName(), "Exiting startListening() with status: Sensor is " + (!isSensorListening? "not ":"") + "listening" );
         }else
         {
             try {
@@ -179,7 +181,7 @@ AndroidSensor(Context context,
         }
 
         try{
-            sensorManager.unregisterListener(this);
+            OsdUtil.sensorManager.unregisterListener(this);
             successUnRegister = true;
         }
         finally {
@@ -226,6 +228,7 @@ AndroidSensor(Context context,
      */
     @Override
     protected void finalize() throws Throwable {
+        Log.d(TAG,"finalize() being called. Status of sensor "+ mSensorFeature +": is " + (!isSensorListening? "not ":"")+ "listening.");
         if (Objects.nonNull(sensor))
         {
             if (isSensorListening())
@@ -235,11 +238,11 @@ AndroidSensor(Context context,
         if (Objects.nonNull(mContext)){
             mContext = null;
         }
-        if (Objects.nonNull(sensorManager)) {
-            sensorManager.flush(this);
-            sensorManager = null;
-        }if (Objects.nonNull(availableSensors)) {
-            availableSensors = null;
+        if (Objects.nonNull(OsdUtil.sensorManager)) {
+            OsdUtil.sensorManager.flush(this);
+            OsdUtil.sensorManager = null;
+        }if (Objects.nonNull(OsdUtil.availableSensors)) {
+            OsdUtil.availableSensors = null;
         }
         super.finalize();
     }

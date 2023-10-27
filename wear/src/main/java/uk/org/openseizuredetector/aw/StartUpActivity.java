@@ -89,6 +89,7 @@ public class StartUpActivity extends AppCompatActivity
     private Constraints defaultConstraints = null;
     private Disposable disposable;
     private long lastAlarmTimeInMilis;
+    private SharedPreferences sharedPreferences;
 
     public static <T extends Parcelable> T unmarshall(byte[] bytes, Parcelable.Creator<T> creator) {
         Parcel parcel = unmarshall(bytes);
@@ -221,6 +222,17 @@ public class StartUpActivity extends AppCompatActivity
 
 
         if (mConnection == null) mConnection = new SdServiceConnection(StartUpActivity.this);
+        sharedPreferences = PreferenceManager.getDefaultSharedPreferences(StartUpActivity.this);
+        if (sharedPreferences.contains(Constants.GLOBAL_CONSTANTS.destroyReasonOf+TAG))
+        {
+            Log.d(TAG, "(re)Constructed after being closed with reason: \n" +
+                    sharedPreferences.getString(Constants.GLOBAL_CONSTANTS.destroyReasonOf + TAG, ""));
+        }
+        if (sharedPreferences.contains(Constants.GLOBAL_CONSTANTS.destroyReasonOf+TAG+"onDestroy"))
+        {
+            Log.d(TAG, "(re)Constructed after being closed with reason: \n" +
+                    sharedPreferences.getString(Constants.GLOBAL_CONSTANTS.destroyReasonOf + TAG + "onDestroy", ""));
+        }
     }
 
     private void onChangedObserver(@Nullable WorkInfo workInfo) {
@@ -485,6 +497,9 @@ public class StartUpActivity extends AppCompatActivity
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            sharedPreferences.edit().putString(Constants.GLOBAL_CONSTANTS.destroyReasonOf+TAG+"onDestroy", Thread.currentThread().getStackTrace().toString()).apply();
+        }
         if (mConnection != null)
             if (mConnection.mAWSdService != null)
                 if (mConnection.mBound) {

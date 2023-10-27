@@ -41,6 +41,7 @@ import android.database.DatabaseUtils;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
@@ -72,6 +73,7 @@ import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
 //use java.Util.Objects as comparetool.
+import java.util.List;
 import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
@@ -104,8 +106,8 @@ public class OsdUtil {
     private boolean mLogData = true;
     private boolean mPermissionsRequested = false;
     private boolean mSMSPermissionsRequested = false;
-    //private LogManager mLm;
-
+    public static SensorManager sensorManager ;
+    public static List<Sensor> availableSensors;
     //save startId of SdServer
     private int wearReceiverStartId;
 
@@ -168,6 +170,7 @@ public class OsdUtil {
                     .equals(service.service.getClassName())) {
                 nServers = nServers + 1;
             }
+
         }
 
         //simplify statement:
@@ -489,6 +492,16 @@ public class OsdUtil {
         }
     }
 
+    public static double calculateAverage(List<Double> marks) {
+        double sum = 0;
+        if (!marks.isEmpty()) {
+            for (Double mark : marks) {
+                sum += mark;
+            }
+            return sum / marks.size();
+        }
+        return sum;
+    }
 
     /**
      * Function to convert sensor acceleration from metres per

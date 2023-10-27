@@ -512,6 +512,38 @@ public class AndroidSensorTest {
         context = null;
     }
 
+    @Test
+    void testGetDoesSensorExist() {
+    }
+
+    @Test
+    void getHasSensorPermissionGranted() {
+    }
+
+    @Test
+    void testIsSensorListening() {
+    }
+
+    @Test
+    void testStartListening() {
+    }
+
+    @Test
+    void testStopListening() {
+    }
+
+    @Test
+    void testOnSensorChanged() {
+    }
+
+    @Test
+    void testOnAccuracyChanged() {
+    }
+
+    @Test
+    void testFinalize() {
+    }
+
     class CyclicBarrierObject implements Runnable{
 
         /**

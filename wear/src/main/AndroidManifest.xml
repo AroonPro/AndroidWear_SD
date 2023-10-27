@@ -16,6 +16,7 @@
 
     <uses-feature android:name="android.hardware.sensor.accelerometer" />
     <uses-feature android:name="android.hardware.sensor.heartrate" />
+    <uses-feature android:name="android.sensor.heart_rate" />
     <uses-feature android:name="android.hardware.sensor.heartrate.ecg" />
     <uses-feature android:name="android.hardware.sensor.ambient_temperature" />
     <uses-feature android:name="android.hardware.sensor.proximity" />

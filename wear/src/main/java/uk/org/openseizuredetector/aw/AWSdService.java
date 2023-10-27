@@ -2,7 +2,6 @@ package uk.org.openseizuredetector.aw;
 
 
 import static com.google.android.gms.tasks.Tasks.await;
-import static java.lang.Math.sqrt;
 
 import android.Manifest;
 import android.app.Activity;
@@ -64,6 +63,7 @@ import com.google.android.gms.wearable.Wearable;
 import org.jetbrains.annotations.NotNull;
 import org.jtransforms.fft.DoubleFFT_1D;
 
+import java.io.Console;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -76,6 +76,9 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
 import java.util.stream.Collectors;
 
 import io.reactivex.rxjava3.core.Observable;
@@ -175,7 +178,6 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     private boolean hasTriggeredlastTimeOffBodyAlarm = false;
     private float batteryPct = -1f;
     public int serverBatteryPct = -1;
-    private ArrayList<Double> heartRates = new ArrayList<Double>(10);
     private CapabilityInfo mMobileNodesWithCompatibility = null;
     private boolean logNotConnectedMessage;
     private boolean logNotConnectedMessagePf;
@@ -207,6 +209,10 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     private Intent intentFromOnStart;
     private boolean connectedConnectionUpdates;
     private SamsungWearSpO2Sensor samsungWearSpO2Sensor;
+    private String sendStringHeartRates;
+    private String sendStringAccelerationData;
+
+    ConsoleHandler console = new ConsoleHandler();
 
     public BroadcastReceiver connectionUpdateReceiver = new BroadcastReceiver() {
         @Override
@@ -279,6 +285,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             Log.d(TAG, "(re)Constructed after being closed with reason: \n" +
                     sharedPreferences.getString(Constants.GLOBAL_CONSTANTS.destroyReasonOf + TAG + "onDestroy", ""));
         }
+        console.publish(new LogRecord(Level.INFO,"onCreate"));
     }
 
 
@@ -484,7 +491,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                                                                            mNodeFullName = node.getDisplayName();
                                                                            mSdData.serverOK = true;
                                                                            mMobileDeviceConnected = true;
-                                                                           sendMessage(Constants.ACTION.PULL_SETTINGS_ACTION,"");
+                                                                           sendMessage(Constants.ACTION.REGISTERED_WEAR_LISTENER,"");
                                                                            //sendMessage(Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_DATA_RECEIVED, mSdData.toSettingsJSON());
                                                                            mUtil.runOnUiThread(()->signalUpdateUI());
                                                                            //TODO: Decide what to do with the population of id and name. Nou this is being treated
@@ -606,11 +613,11 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 titleStr = "OK";
                 smsStr = "OSD Active: " + mSdData.mHR + " bpm";
         }
-        String man[] = {Manifest.permission.BODY_SENSORS_BACKGROUND,
+        String man[] = {Build.VERSION.SDK_INT>=Build.VERSION_CODES.TIRAMISU?Manifest.permission.BODY_SENSORS_BACKGROUND:"",
                 Manifest.permission.FOREGROUND_SERVICE,
         Manifest.permission.INTERNET,
         Manifest.permission.RECEIVE_BOOT_COMPLETED,
-        Manifest.permission.HIGH_SAMPLING_RATE_SENSORS};
+                Build.VERSION.SDK_INT>=Build.VERSION_CODES.S?Manifest.permission.HIGH_SAMPLING_RATE_SENSORS:""};
 
         //       if (mAudibleWarning)
         //         soundUri = Uri.parse("android.resource://" + getPackageName() + "/raw/warning");
@@ -905,11 +912,13 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 if (changedNodeSet.size() == 0) return;
                 changedNode = changedNodeSet.stream().findFirst().get();
                 mMobileNodesWithCompatibility = capabilityInfo;
-                if (!Objects.equals(mMobileNode, null)) if (mMobileNode.equals(changedNode)) {
+                if (Objects.isNull(mMobileNode)) mMobileNode = changedNode;
+                if (mMobileNode.equals(changedNode)) {
                     mSdData.watchConnected = true;
                     mMobileDeviceConnected = true;
                 }
             }
+
             if (Constants.GLOBAL_CONSTANTS.mAppPackageName.equalsIgnoreCase(capabilityInfo.getName())) {
                 Log.v(TAG, "Received: " + capabilityInfo.getName());
                 if (changedNodeSet.size() == 0) return;
@@ -1091,16 +1100,19 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                     mSdData.watchFwVersion = Build.DISPLAY;
                     mSdData.watchPartNo = Build.BOARD;
                     mSdData.watchSdName = Build.MODEL;
+                    mSdData.watchFwVersion = ((Context)this).getPackageManager().getPackageInfo(((Context)this).getPackageName(), 0).versionName;
 
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                         if (this.checkSelfPermission(Manifest.permission.BODY_SENSORS) != PackageManager.PERMISSION_GRANTED) {
                             //requestPermissions(new String[]{Manifest.permission.BODY_SENSORS}, 1);
                             ActivityCompat.requestPermissions(getActivity(this),
                                     new String[]{
                                             Manifest.permission.ACTIVITY_RECOGNITION,
                                             Manifest.permission.BODY_SENSORS,
-                                            Manifest.permission.BODY_SENSORS_BACKGROUND,
-                                            Manifest.permission.FOREGROUND_SERVICE_HEALTH},
+                                            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ?
+                                                    Manifest.permission.BODY_SENSORS_BACKGROUND:"",
+                                            Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE ?
+                                                    Manifest.permission.FOREGROUND_SERVICE_HEALTH:""},
                                     Constants.GLOBAL_CONSTANTS.PERMISSION_REQUEST_BODY_SENSORS);
 
 
@@ -1114,12 +1126,9 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                         accelerationSensor = new AccelerationSensor((Context) this,
                                 (int) mSampleTimeUs,
                                 (int) 78.4532) {
-                            @Nullable
                             @Override
                             public void onSensorValuesChanged(SensorEvent event) {
-                                mUtil.runOnUiThread(
-                                        ()->accelerationEvent(event)
-                                );
+                                AWSdService.this.accelerationEvent(event);
                             }
 
                             @Override
@@ -1129,7 +1138,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
 
                             @Override
                             public void onSensorAccuracyValueChanged(Sensor sensor, int accuracy) {
-
+                                AWSdService.this.onAccuracyChanged(sensor,accuracy);
                             }
                         };
                     }
@@ -1144,8 +1153,8 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                          * @param event
                          */
                         @Override
-                        public @org.jetbrains.annotations.Nullable void onSensorValuesChanged(SensorEvent event) {
-                            onChangeProximityEvent(event);
+                        public void onSensorValuesChanged(SensorEvent event) {
+                            AWSdService.this.onChangeProximityEvent(event);
                         }
 
                         /**
@@ -1171,15 +1180,14 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                                 (int) Constants.GLOBAL_CONSTANTS.getMaxHeartRefreshRate,
                                 (int) (Constants.GLOBAL_CONSTANTS.getMaxHeartRefreshRate * 4)
                         ) {
-                            @Nullable
                             @Override
                             public void onSensorValuesChanged(SensorEvent event) {
-                                mUtil.runOnUiThread(()->spO2SensorChanged(event));
+                                AWSdService.this.spO2SensorChanged(event);
                             }
 
                             @Override
                             public void onSensorAccuracyValueChanged(Sensor sensor, int accuracy) {
-
+                                AWSdService.this.onAccuracyChanged(sensor,accuracy);
                             }
 
                             @Override
@@ -1187,6 +1195,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
 
                             }
                         };
+
                     }
                     if (!samsungWearSpO2Sensor.isSensorListening())
                         samsungWearSpO2Sensor.startListening();
@@ -1194,11 +1203,10 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                     if (Objects.isNull(heartRateSensor)) {
                         heartRateSensor = new HeartRateSensor((Context) this,
                                 (int) Constants.GLOBAL_CONSTANTS.getMaxHeartRefreshRate,
-                                (int) (Constants.GLOBAL_CONSTANTS.getMaxHeartRefreshRate * 4)) {
-                            @Nullable
+                                (int) (Constants.GLOBAL_CONSTANTS.getMaxHeartRefreshRate * 2)) {
                             @Override
                             public void onSensorValuesChanged(SensorEvent event) {
-                                heartRateEvent(event);
+                                AWSdService.this.heartRateEvent(event);
                             }
 
                             @Override
@@ -1208,7 +1216,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
 
                             @Override
                             public void onSensorAccuracyValueChanged(Sensor sensor, int accuracy) {
-
+                                AWSdService.this.onAccuracyChanged(sensor,accuracy);
                             }
                         };
 
@@ -1226,10 +1234,9 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                         heartBeatSensor = new HeartBeatSensor((Context) this,
                                 (int) Constants.GLOBAL_CONSTANTS.getMaxHeartRefreshRate,
                                 (int) (Constants.GLOBAL_CONSTANTS.getMaxHeartRefreshRate * 4)) {
-                            @Nullable
                             @Override
                             public void onSensorValuesChanged(SensorEvent event) {
-                                heartBeatEvent(event);
+                                AWSdService.this.heartBeatEvent(event);
                             }
 
                             @Override
@@ -1239,7 +1246,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
 
                             @Override
                             public void onSensorAccuracyValueChanged(Sensor sensor, int accuracy) {
-
+                                AWSdService.this.onAccuracyChanged(sensor,accuracy);
                             }
                         };
                     }
@@ -1258,8 +1265,8 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                              * @param event
                              */
                             @Override
-                            public @org.jetbrains.annotations.Nullable void onSensorValuesChanged(SensorEvent event) {
-                                offBodySensorEvent(event);
+                            public void onSensorValuesChanged(SensorEvent event) {
+                                AWSdService.this.offBodySensorEvent(event);
                             }
 
                             /**
@@ -1292,13 +1299,13 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                     if (Objects.isNull(mLightSensor)){
                         mLightSensor = new LightSensor(this,(int) Constants.GLOBAL_CONSTANTS.getMaxHeartRefreshRate, (int) Constants.GLOBAL_CONSTANTS.getMaxHeartRefreshRate * 3) {
                             @Override
-                            public @org.jetbrains.annotations.Nullable void onSensorValuesChanged(SensorEvent event) {
+                            public void onSensorValuesChanged(SensorEvent event) {
                                 isDark = (event.values[0] <=700f);
                             }
 
                             @Override
                             public void onSensorAccuracyValueChanged(Sensor sensor, int accuracy) {
-
+                                AWSdService.this.onAccuracyChanged(sensor,accuracy);
                             }
 
                             @Override
@@ -1349,7 +1356,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 mAmbientTemperatureSensor.stopListening();
         if (Objects.nonNull(mStationaryDetectSensor))
             if (mStationaryDetectSensor.isSensorListening())
-            mStationaryDetectSensor.stopListening();
+                mStationaryDetectSensor.stopListening();
 
         if (!inOffBodyChangeEvent||!isInPocket){
             if (Objects.nonNull(accelerationSensor))
@@ -1364,7 +1371,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 if (mLightSensor.isSensorListening())
                     mLightSensor.stopListening();
             if (Objects.nonNull(heartRateSensor))
-                if (heartBeatSensor.isSensorListening())
+                if (heartRateSensor.isSensorListening())
                     heartRateSensor.stopListening();
             if (Objects.nonNull(samsungWearSpO2Sensor))
                 if (samsungWearSpO2Sensor.isSensorListening())
@@ -1508,9 +1515,9 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             powerUpdateReceiverPowerUpdated.isRegistered = true;
 
         }
-        powerUpdateReceiverPowerConnected.register(this, new IntentFilter(Intent.ACTION_POWER_CONNECTED));
+        if (!powerUpdateReceiverPowerConnected.isRegistered) powerUpdateReceiverPowerConnected.register(this, new IntentFilter(Intent.ACTION_POWER_CONNECTED));
         powerUpdateReceiverPowerConnected.isRegistered = true;
-        powerUpdateReceiverPowerDisConnected.register(this, new IntentFilter(Intent.ACTION_POWER_DISCONNECTED));
+        if (!powerUpdateReceiverPowerDisConnected.isRegistered) powerUpdateReceiverPowerDisConnected.register(this, new IntentFilter(Intent.ACTION_POWER_DISCONNECTED));
         powerUpdateReceiverPowerDisConnected.isRegistered = true;
         powerUpdateReceiverPowerOkay.register(this, new IntentFilter(Intent.ACTION_BATTERY_LOW));
         powerUpdateReceiverPowerLow.register(this, new IntentFilter(Intent.ACTION_BATTERY_OKAY));
@@ -1629,7 +1636,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     public void onDestroy() {
         super.onDestroy();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            sharedPreferences.edit().putString(Constants.GLOBAL_CONSTANTS.destroyReasonOf+TAG+"onDestroy", Thread.currentThread().getStackTrace().toString());
+            sharedPreferences.edit().putString(Constants.GLOBAL_CONSTANTS.destroyReasonOf+TAG+"onDestroy", Thread.currentThread().getStackTrace().toString()).apply();
         }
         Log.v(TAG, "onDestroy()");
         try {
@@ -1687,34 +1694,39 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     }
 
     public void heartRateEvent(SensorEvent event){
-        if (Sensor.TYPE_HEART_RATE == event.sensor.getType()){
+        if (Sensor.TYPE_HEART_RATE == event.sensor.getType() ){
+            if ((event.accuracy == SensorManager.SENSOR_STATUS_ACCURACY_LOW || event.accuracy == SensorManager.SENSOR_STATUS_NO_CONTACT ))
+                Log.e(TAG,"heartRateEvent(): received low accuracy or no contact from heartrate sensor.");
             int newValue = Math.round(event.values[0]);
             //Log.d(LOG_TAG,sensorEvent.sensor.getName() + " changed to: " + newValue);
             // only do something if the value differs from the value before and the value is not 0.
             if (mSdData.mHR != newValue && newValue != 0) {
                 // save the new value
                 mSdData.mHR = newValue;
+                mSdData.addNewHeartRateValue(newValue);
                 // add it to the list and computer a new average
-                if (heartRates.size() == 10) {
-                    heartRates.remove(0);
+                if (mSdData.heartRates.size() == 10) {
+                    mSdData.heartRates.remove(0);
 
                 }
                 if ((Integer.MAX_VALUE - 1) == mHeartRatesCount)
-                    mHeartRatesCount = heartRates.size();
+                    mHeartRatesCount = mSdData.heartRates.size();
                 mHeartRatesCount++;
-                heartRates.add(mSdData.mHR);
 
-            }
-            mSdData.mHRAvg = calculateAverage(heartRates);
-            if (heartRates.size() < 4) {
-                mSdData.mHRAvg = 0;
-            }
-            checkAlarm();
-            if (mHeartRatesCount % 10 == 0) {
-                mSdData.mDataType = Constants.GLOBAL_CONSTANTS.dataTypeRaw;
-                mSdData.haveData = true;
-                sendMessage(Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_DATA, mSdData.toDataString(true));
-                signalUpdateUI();
+                if (mHeartRatesCount % 10 == 0) {
+                    mSdData.mDataType = Constants.GLOBAL_CONSTANTS.dataTypeRaw;
+                    mSdData.haveData = true;
+                    sendStringHeartRates = mSdData.toHeartRatesArrayString();
+                    if (Objects.isNull(sendStringHeartRates)) {
+                        return;
+                    }
+                    if (sendStringHeartRates.isBlank() || sendStringHeartRates.isEmpty()) {
+                        return;
+                    }
+                    sendMessage(Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_DATA, sendStringHeartRates);
+                    checkAlarm();
+                    signalUpdateUI();
+                }
             }
         }
 
@@ -1866,7 +1878,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                     if (Objects.isNull(rawDataList)) rawDataList = new ArrayList<>();
                     if (Objects.isNull(rawDataList3D)) rawDataList3D = new ArrayList<>();
                     // is this a heartbeat event and does it have data?
-                     if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+                    if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
 
                     }
                     else if (event.sensor.getType() == Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT) {
@@ -1985,16 +1997,6 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             }
         }
     }
-    private double calculateAverage(List<Double> marks) {
-        double sum = 0;
-        if (!marks.isEmpty()) {
-            for (Double mark : marks) {
-                sum += mark;
-            }
-            return sum / marks.size();
-        }
-        return sum;
-    }
 
     /**
      * doAnalysis() - analyse the data if the accelerometer data array mAccData
@@ -2044,7 +2046,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
 
             // Calculate the Region of Interest power and power ratio.
             double roiPower = 0;
-            for (int i = nMin; i < nMax; i++) {
+            for (int i = nMin; i < nMax -3; i++) {
                 roiPower = roiPower + getMagnitude(fft, i);
             }
             roiPower = roiPower / (nMax - nMin);
@@ -2090,6 +2092,9 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        Log.i(TAG,"onSensorAccuracyChanged(): received change of sensor: " + sensor.getName() + "" +
+                "\nand Type ID: " + sensor.getType() + "\n" +
+                "and it's current accuracy: " + accuracy);
 
     }
 
@@ -2159,7 +2164,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                     // Asynchronous callback for result of sendMessageTask
                     sendMessageTask.addOnCompleteListener(task -> {
                                 if (task.isSuccessful()) {
-                                    Log.v(TAG, "Message: {" + text + "} sent to: " + mMobileNodeUri);
+                                    Log.v(TAG, "Message: {" + path+ ", " + text + "} sent to: " + mMobileNodeUri);
 
                                 } else {
                                     // Log an error
@@ -2353,8 +2358,10 @@ if (Objects.equals(intent, null)) return START_NOT_STICKY;
             // additional work match on context before unregister
             // eg store weak ref in register then compare in unregister
             // if match same instance
-            return isRegistered
+            boolean returnValue = isRegistered
                     && unregisterInternal(context);
+            Log.i (TAG, this + "result of request unregister: " + returnValue);
+            return returnValue;
         }
 
         private boolean unregisterInternal(Context context) {

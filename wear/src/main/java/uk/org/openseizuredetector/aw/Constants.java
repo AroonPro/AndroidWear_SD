@@ -53,6 +53,14 @@ public class Constants {
         //equals 1/s seconds = 400ms  , 300bpm is unlikely but will translate to 300Hz 1/300
         public final double getMaxHeartRefreshRate = OsdUtil.convertTimeUnit(1d / maxHeartRefreshRate ,TimeUnit.SECONDS,TimeUnit.MICROSECONDS);
         public final boolean debugStartAllowed = true;
+        public final String heartRateList = "heartRateList";
+
+        String BATTERY_PC = "batteryPc";
+        String DATA_TYPE = "dataType";
+        String DATA_TYPE_RAW = "raw";
+        String DATA_VALUE_HR = "hr";
+        String JSON_TYPE_DATA = "data";
+        String JSON_TYPE_BATTERY = "battery";
     }
 
     public interface ACTION {
