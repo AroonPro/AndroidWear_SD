@@ -366,6 +366,11 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                             this,
                             Uri.parse("wear://"), CapabilityClient.FILTER_REACHABLE
                     );
+            Wearable.getCapabilityClient(this)
+                    .addListener(
+                            this,
+                            Uri.parse(Constants.GLOBAL_CONSTANTS.mAppPackageName), CapabilityClient.FILTER_REACHABLE
+                    );
             capabilityClient = Wearable.getCapabilityClient(this);
             capabilityClient.addLocalCapability(Constants.GLOBAL_CONSTANTS.mAppPackageNameWearSD);
             capabilityClient.addListener(this, Constants.GLOBAL_CONSTANTS.mAppPackageNameWearReceiver);
@@ -530,6 +535,9 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                     sharedPreferences.edit().putString(Constants.GLOBAL_CONSTANTS.destroyReasonOf+TAG+"onDestroy", Thread.currentThread().getStackTrace().toString());
                 }
 
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
+                    AWSdService.this.stopForeground(STOP_FOREGROUND_REMOVE);
+                }
                 unBindBatteryEvents();
                 unBindSensorListeners();
                 unBindMobileRunner();
@@ -729,6 +737,13 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
 
     }
 
+    private void setWatchDetailsInmSdData() throws PackageManager.NameNotFoundException {
+        mSdData.watchSdVersion = BuildConfig.VERSION_NAME;
+        mSdData.watchFwVersion = Build.DISPLAY;
+        mSdData.watchPartNo = Build.BOARD;
+        mSdData.watchSdName = Build.MODEL;
+        mSdData.watchFwVersion = ((Context)this).getPackageManager().getPackageInfo(((Context)this).getPackageName(), 0).versionName;
+    }
     private int getNotificationIcon() {
         boolean useWhiteIcon = (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP);
         return useWhiteIcon ? R.drawable.star_of_life_24x24 : R.drawable.icon_24x24;
@@ -820,6 +835,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
 
             try {
                 mSdDataSettings.fromJSON(s1);
+                setWatchDetailsInmSdData();
                 calculationStep = 0;
                 if (!calculateStaticTimings()) {
                     Log.d(TAG, "onMessageReceived(): not calculated timings, returning uninitialised");
@@ -874,6 +890,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             try {
                 SdData sdData = new SdData();
                 sdData.fromJSON(s1);
+                setWatchDetailsInmSdData();
                 sdData.serverOK = true;
 
                 mSdData = sdData;
@@ -907,7 +924,9 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
         Set<Node> changedNodeSet = capabilityInfo.getNodes();
         Node changedNode = null;
         try {
-            if (Constants.GLOBAL_CONSTANTS.mAppPackageName.equalsIgnoreCase(capabilityInfo.getName())) {
+            if (
+                    Constants.GLOBAL_CONSTANTS.mAppPackageName.equalsIgnoreCase(capabilityInfo.getName()) ||
+                    Constants.GLOBAL_CONSTANTS.mAppPackageNameWearReceiver.equalsIgnoreCase(capabilityInfo.getName())) {
                 Log.v(TAG, "Received: " + capabilityInfo.getName());
                 if (changedNodeSet.size() == 0) return;
                 changedNode = changedNodeSet.stream().findFirst().get();
@@ -916,14 +935,16 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 if (mMobileNode.equals(changedNode)) {
                     mSdData.watchConnected = true;
                     mMobileDeviceConnected = true;
+                    mSdData.serverOK = true;
+                    bindSensorListeners();
                 }
-            }
+            }else
 
             if (Constants.GLOBAL_CONSTANTS.mAppPackageName.equalsIgnoreCase(capabilityInfo.getName())) {
                 Log.v(TAG, "Received: " + capabilityInfo.getName());
                 if (changedNodeSet.size() == 0) return;
 
-            }
+            } else
 
             if ("is_connection_lost".equals(capabilityInfo.getName())) {
                 mSdData.serverOK = false;
@@ -932,6 +953,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
 
             } else {
                 Log.d(TAG, "onCapabilityChanged(): count of set changedCapabilities: " + changedNodeSet.size());
+                mSdData.serverOK = false;
                 mSdData.watchConnected = false;
                 //mSdData.serve0rOK = false;
             }
@@ -948,7 +970,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
         //and signal update UI
         if (Objects.nonNull(serviceLiveData)){
                 if (serviceLiveData.hasActiveObservers()) {
-                    serviceLiveData.signalChangedData();
+                    mHandler.post(serviceLiveData::signalChangedData);
                 }
             }
     }
@@ -1096,11 +1118,6 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                                 Double.isNaN(mSampleTimeUs))
                             mSampleTimeUs = SensorManager.SENSOR_DELAY_NORMAL;
                     }
-                    mSdData.watchSdVersion = BuildConfig.VERSION_NAME;
-                    mSdData.watchFwVersion = Build.DISPLAY;
-                    mSdData.watchPartNo = Build.BOARD;
-                    mSdData.watchSdName = Build.MODEL;
-                    mSdData.watchFwVersion = ((Context)this).getPackageManager().getPackageInfo(((Context)this).getPackageName(), 0).versionName;
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                         if (this.checkSelfPermission(Manifest.permission.BODY_SENSORS) != PackageManager.PERMISSION_GRANTED) {
@@ -1670,6 +1687,11 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                             this,
                             Uri.parse("wear://"), CapabilityClient.FILTER_REACHABLE
                     );
+            Wearable.getCapabilityClient(this)
+                    .addListener(
+                            this,
+                            Uri.parse(Constants.GLOBAL_CONSTANTS.mAppPackageName), CapabilityClient.FILTER_REACHABLE
+                    );
             Wearable.getMessageClient(this).addListener(this);
             unBindBatteryEvents();
             bindBatteryEvents();
@@ -1703,12 +1725,9 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             if (mSdData.mHR != newValue && newValue != 0) {
                 // save the new value
                 mSdData.mHR = newValue;
-                mSdData.addNewHeartRateValue(newValue);
+                mSdData.mHistoricHrBuf.add(newValue);
                 // add it to the list and computer a new average
-                if (mSdData.heartRates.size() == 10) {
-                    mSdData.heartRates.remove(0);
 
-                }
                 if ((Integer.MAX_VALUE - 1) == mHeartRatesCount)
                     mHeartRatesCount = mSdData.heartRates.size();
                 mHeartRatesCount++;
@@ -2145,6 +2164,11 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                                 this,
                                 Uri.parse("wear://"), CapabilityClient.FILTER_REACHABLE
                         );
+                Wearable.getCapabilityClient(this)
+                        .addListener(
+                                this,
+                                Uri.parse(Constants.GLOBAL_CONSTANTS.mAppPackageName), CapabilityClient.FILTER_REACHABLE
+                        );
                 Wearable.getMessageClient(this).addListener(this);
                 Log.e(TAG, "SendMessageFailed: No node-Id stored");
             } else {
@@ -2186,6 +2210,11 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                     .addListener(
                             this,
                             Uri.parse("wear://"), CapabilityClient.FILTER_REACHABLE
+                    );
+            Wearable.getCapabilityClient(this)
+                    .addListener(
+                            this,
+                            Uri.parse(Constants.GLOBAL_CONSTANTS.mAppPackageName), CapabilityClient.FILTER_REACHABLE
                     );
             Wearable.getMessageClient(this).addListener(this);
         }

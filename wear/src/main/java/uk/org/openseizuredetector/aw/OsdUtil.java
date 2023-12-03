@@ -199,11 +199,11 @@ public class OsdUtil {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
                 Log.i(TAG, "Starting Foreground Service (Android 8 and above)");
-                PendingIntent pendingService = PendingIntent.getService(mContext, 1, mServiceIntent, PendingIntent.FLAG_ONE_SHOT |
+                PendingIntent pendingService = PendingIntent.getService(mContext, requestCode, mServiceIntent, PendingIntent.FLAG_ONE_SHOT |
                         PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
                 pendingService.send();
-            }catch ( PendingIntent.CanceledException illegalExeptions ){
-                Log.e(TAG, "startServer(): ", illegalExeptions);
+            }catch ( PendingIntent.CanceledException illegalExceptions ){
+                Log.e(TAG, "startServer(): ", illegalExceptions);
             }
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             mContext.startForegroundService ( mServiceIntent );

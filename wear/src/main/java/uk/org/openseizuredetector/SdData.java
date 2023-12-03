@@ -78,6 +78,7 @@ public class SdData<T> implements Parcelable {
     public long alarmThresh;
     public long alarmRatioThresh;
     public long batteryPc;
+    private JSONArray hrArr;
     private JSONArray arr;
     private JSONArray rawArr = null;
     private JSONArray raw3DArr;
@@ -144,6 +145,8 @@ public class SdData<T> implements Parcelable {
     public double mAverageHrAverage;
     public double mAdaptiveHrAverage;
 
+
+    public CircBuf mHistoricHrBuf;
     public CircBuf mAdaptiveHrBuf;
     public CircBuf mAverageHrBuf;
     public boolean mHRFrozenFaultStanding = false;
@@ -179,6 +182,7 @@ public class SdData<T> implements Parcelable {
         rawData3D = new double[N_RAW_DATA * 3];
         dT = 0d;
         dataTime = new Time(Time.getCurrentTimezone());
+        mHistoricHrBuf = new CircBuf(10,-1);
     }
 
     /*
@@ -453,9 +457,10 @@ public class SdData<T> implements Parcelable {
             if (Double.isNaN(mO2Sat)||Double.isInfinite(mO2Sat)||mO2Sat < 30d)
                 mO2Sat = -1d;
             jsonObj.put("o2Sat", mO2Sat);
-            if (Objects.nonNull(heartRates)) {
-                if (!heartRates.isEmpty()) {
-                    jsonObj.put(Constants.GLOBAL_CONSTANTS.heartRateList, new JSONArray(heartRates));
+            if (Objects.nonNull(mHistoricHrBuf)) {
+                if (mHistoricHrBuf.getNumVals()!=0) {
+                    hrArr = new JSONArray(mHistoricHrBuf.getVals());
+                    jsonObj.put(Constants.GLOBAL_CONSTANTS.heartRateList, hrArr);
                 }
             }
         } catch (JSONException jsonException){
@@ -463,6 +468,7 @@ public class SdData<T> implements Parcelable {
         }
         retval = jsonObj.toString();
         jsonObj = null;
+        hrArr = null;
         arr = null;
         rawArr = null;
         raw3DArr = null;
