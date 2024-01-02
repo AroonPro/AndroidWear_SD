@@ -802,8 +802,11 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 Log.v(TAG, "Sending return message: " + Constants.GLOBAL_CONSTANTS.wearableAppCheckPayloadReturnACK);
                 if (Objects.equals(input, Constants.GLOBAL_CONSTANTS.wearableAppCheckPayload))
                     sendMessage(Constants.GLOBAL_CONSTANTS.APP_OPEN_WEARABLE_PAYLOAD_PATH, Constants.GLOBAL_CONSTANTS.wearableAppCheckPayloadReturnACK);
-                if (Objects.equals(input, Constants.GLOBAL_CONSTANTS.wearableAppCheckPayloadReturnACK))
+                if (Objects.equals(input, Constants.GLOBAL_CONSTANTS.wearableAppCheckPayloadReturnACK)) {
                     sendMessage(Constants.GLOBAL_CONSTANTS.APP_OPEN_WEARABLE_PAYLOAD_PATH, Constants.ACTION.PULL_SETTINGS_ACTION);
+                    sendMessage(Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_DATA_REQUESTED, Constants.ACTION.PULL_SETTINGS_ACTION);
+                }
+
 
                 Log.d(TAG, "!messageEventPath.isEmpty() && Objects.equals(messageEventPath, APP_OPEN_WEARABLE_PAYLOAD_PATH) We returned from sending message.");
 
@@ -811,6 +814,8 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 Log.v(TAG, "onMessageReceived() init_message " + s1 + " Received new settings failed to process", e);
             }
             input = null;
+        } else if ((!messageEventPath.isEmpty()) && Constants.ACTION.START_WEAR_APP_ACTION.equals(messageEventPath)) {
+            sendMessage(Constants.ACTION.START_WEAR_APP_ACTION,String.valueOf(true));
         } else if ((!messageEventPath.isEmpty()) && Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_TEST_RECEIVED.equals(messageEventPath)) {
             //TODO
         } else if ((!messageEventPath.isEmpty()) && Constants.GLOBAL_CONSTANTS.MESSAGE_OSD_FUNCTION_RESTART.equals(messageEventPath)) {
@@ -887,28 +892,22 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 Log.e(TAG, "OnMessageReceived(): catch on Received new settings failed to process", e);
             }
         } else if (!messageEventPath.isEmpty() && Objects.equals(messageEventPath, Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_DATA_RECEIVED)) {
+            SdData sdData = new SdData();
+            sdData.fromJSON(s1);
             try {
-                SdData sdData = new SdData();
-                sdData.fromJSON(s1);
                 setWatchDetailsInmSdData();
-                sdData.serverOK = true;
-
-                mSdData = sdData;
-                mSdDataSettings = sdData;
-                unBindSensorListeners();
-                if (calculateStaticTimings()) {
-                    if (!isCharging() || Constants.GLOBAL_CONSTANTS.debugStartAllowed)
-                        bindSensorListeners();
-                    else {
-                        Log.d(TAG, "onMessageReceived(): MESSAGE_ITEM_OSD_DATA_RECEIVED: is charging detected. Not initialising sensors");
-                    }
-                }else{
-                    Log.d(TAG,"onMessageReceived(): MESSAGE_ITEM_OSD_DATA_RECEIVED: Did not calculate Static Timings.");
-                }
-
-            } catch (Exception e) {
-                Log.e(TAG, "onMessageReceived()", e);
+            } catch (PackageManager.NameNotFoundException e) {
+                throw new RuntimeException(e);
             }
+            sdData.serverOK = true;
+
+            mSdData = sdData;
+            mSdDataSettings = sdData;
+            startSdSensorBinding(s1);
+        } else if (!messageEventPath.isEmpty() && Objects.equals(messageEventPath, Constants.ACTION.CONNECT_WEARABLE_INTENT)) {
+            startSdSensorBinding(s1);
+        }  else if (!messageEventPath.isEmpty() && Objects.equals(messageEventPath, Constants.ACTION.START_WEAR_SD_ACTION)) {
+            startSdSensorBinding(s1);
         } else if (!messageEventPath.isEmpty() && Constants.ACTION.BATTERYUPDATE_ACTION.equals(messageEventPath)) {
             serverBatteryPct = Integer.parseInt(s1);
             serviceLiveData.signalChangedData();
@@ -916,6 +915,25 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             Log.v(TAG + "nn", "Not processing received message, displaying in log: " + s1);
         }
 
+    }
+
+    private void startSdSensorBinding(String s1) {
+        try {
+
+            unBindSensorListeners();
+            if (calculateStaticTimings()) {
+                if (!isCharging() || Constants.GLOBAL_CONSTANTS.debugStartAllowed)
+                    bindSensorListeners();
+                else {
+                    Log.d(TAG, "onMessageReceived(): MESSAGE_ITEM_OSD_DATA_RECEIVED: is charging detected. Not initialising sensors");
+                }
+            }else{
+                Log.d(TAG,"onMessageReceived(): MESSAGE_ITEM_OSD_DATA_RECEIVED: Did not calculate Static Timings.");
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "onMessageReceived()", e);
+        }
     }
 
     @Override
@@ -1483,7 +1501,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                     if (!mIsCharging && mMobileDeviceConnected && mBound && Intent.ACTION_POWER_DISCONNECTED.equals(intent.getAction()))
                         bindSensorListeners();
                     if (mMobileDeviceConnected)
-                        sendMessage(Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_DATA, mSdData.toSettingsJSON());
+                        sendMessage(Constants.ACTION.BATTERYUPDATE_AW_ACTION, String.valueOf(batteryPct));
 
                 }
                 if (intent.getAction().equals(Intent.ACTION_BATTERY_LOW) ||

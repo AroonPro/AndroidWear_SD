@@ -66,6 +66,7 @@ public class Constants {
     public interface ACTION {
         public static String STARTFOREGROUND_ACTION = "uk.org.openseizuredetector.startforeground";
         public static String STOPFOREGROUND_ACTION = "uk.org.openseizuredetector.stopforeground";
+        public static String BATTERYUPDATE_AW_ACTION = "uk.org.openseizuredetector.aw.onBatteryUpdate";
         public static String BATTERYUPDATE_ACTION = "uk.org.openseizuredetector.onBatteryUpdate";
         public static String BIND_ACTION = "uk.org.openseizuredetector.bindAction";
         public static String BROADCAST_TO_WEARRECEIVER = "uk.org.openseizuredetector.aw.broadcastToWearReceiver";
@@ -91,13 +92,29 @@ public class Constants {
         public static String CONNECTED_WEARABLE_INTENT = "uk.org.openseizuredetector.aw.mobile.connectedWearableIntent";
         public static String DISCONNECT_WEARABLE_INTENT = "uk.org.openseizuredetector.aw.mobile.disConnectIntent";
         public static String DISCONNECTED_WEARABLE_INTENT = "uk.org.openseizuredetector.aw.mobile.disConnectedIntent";
-        public static String REGISTER_WEARRECEIVER_INTENT = "uk.org.openseizuredetector.aw.mobile.registerWearRecieverIntent";
-        public static String REGISTERED_WEARRECEIVER_INTENT = "uk.org.openseizuredetector.aw.mobile.registeredWearRecieverIntent";
+        public static String REGISTER_WEARRECEIVER_INTENT = "uk.org.openseizuredetector.aw.mobile.registerWearReceiverIntent";
+        public static String REGISTERED_WEARRECEIVER_INTENT = "uk.org.openseizuredetector.aw.mobile.registeredWearReceiverIntent";
         public static String CONNECTION_WEARABLE_CONNECTED = "uk.org.openseizuredetector.aw.wear.wearableConnected";
         public static String CONNECTION_WEARABLE_RECONNECTED = "uk.org.openseizuredetector.aw.wear.wearableReConnected";
         public static String CONNECTION_WEARABLE_DISCONNECTED = "uk.org.openseizuredetector.aw.wear.wearableDisConnected";
         public static String SDDATA_TRANSFER_TO_SD_SERVER = "uk.org.openseizuredetector.sdDataTransfer";
         public static String WATCH_BODY_DETECTED = "uk.org.openseizuredetector.aw.wear.wearableChangedBodyDetectedValue";
+    }
+
+    public enum PendingResult {
+        PENDING(0),
+        SUCCESS(1),
+        FAILURE(2);
+
+        private final int value;
+
+        PendingResult(int value) {
+            this.value = value;
+        }
+
+        public int getValue() {
+            return value;
+        }
     }
 
     public interface NOTIFICATION_ID {
