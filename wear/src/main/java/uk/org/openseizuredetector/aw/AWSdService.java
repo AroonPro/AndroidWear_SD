@@ -1969,24 +1969,25 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 mSdData.alarmStanding = true;
             }
 
-            if (mSdData.mHRAvg > 0d)
+            if (mSdData.mHRAvg > 0d) {
                 if (mSdData.mHRAlarmActive && ((mSdData.mHRAvg < mSdData.mHRThreshMin))) {
                     if (!mSdData.mHRAlarmStanding) inAlarm = true;
                     mSdData.mHRAlarmStanding = true;
                     mAlarmTime = (int) mSdData.alarmTime;
-                    mSdData.alarmPhrase = "Heart rate lower than minThreshold";
+                    mSdData.alarmPhrase = "Heart rate average lower than minThreshold";
                 }
                 if (mSdData.mHRAlarmActive && ((mSdData.mHRAvg > mSdData.mHRThreshMax))) {
                     if (!mSdData.mHRAlarmStanding) inAlarm = true;
                     mSdData.mHRAlarmStanding = true;
                     mAlarmTime = (int) mSdData.alarmTime;
-                    mSdData.alarmPhrase = "Heart rate higher than maxThreshold";
+                    mSdData.alarmPhrase = "Heart rate average higher than maxThreshold";
                 }
-            if (mSdData.mHRAlarmActive && mSdData.mHRAvg != 0d && mSdData.mHR > mSdData.mHRAvg * mHeartPercentThresh) {
-                if (!mSdData.mHRAlarmStanding) inAlarm = true;
-                mAlarmTime = (int) mSdData.alarmTime;
-                mSdData.mHRAlarmStanding = true;
-                mSdData.alarmPhrase = "Heart rate higher than minThreshold";
+                if (mSdData.mHRAlarmActive && mSdData.mHRAvg != 0d && mSdData.mHR > mSdData.mHRAvg * mHeartPercentThresh) {
+                    if (!mSdData.mHRAlarmStanding) inAlarm = true;
+                    mAlarmTime = (int) mSdData.alarmTime;
+                    mSdData.mHRAlarmStanding = true;
+                    mSdData.alarmPhrase = "Heart rate higher than 30* of average Threshold";
+                }
             }
             //Log.v(TAG, "checkAlarm() roiPower " + mSdData.roiPower + " roiRaTIO " + mSdData.roiRatio);
         }
