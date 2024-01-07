@@ -258,6 +258,47 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     private int mHeartRatesCount;
     private List<Node> connectedNodes;
 
+    private boolean powerUpdateReceiversAreNull(){
+        return Objects.isNull(powerUpdateReceiver)&&
+                Objects.isNull(powerUpdateReceiverPowerUpdated)&&
+                Objects.isNull(powerUpdateReceiverPowerOkay)&&
+                Objects.isNull(powerUpdateReceiverPowerLow)&&
+                Objects.isNull(powerUpdateReceiverPowerConnected)&&
+                Objects.isNull(powerUpdateReceiverPowerDisConnected);
+    }
+
+    private boolean powerUpdateReceiversAreNonNull(){
+        return Objects.nonNull(powerUpdateReceiver)&&
+                Objects.nonNull(powerUpdateReceiverPowerUpdated)&&
+                Objects.nonNull(powerUpdateReceiverPowerOkay)&&
+                Objects.nonNull(powerUpdateReceiverPowerLow)&&
+                Objects.nonNull(powerUpdateReceiverPowerConnected)&&
+                Objects.nonNull(powerUpdateReceiverPowerDisConnected) &&
+                Objects.nonNull(batteryStatusIntent);
+    }
+
+    private boolean powerUpdateReceiversAreConnected(){
+        if (powerUpdateReceiversAreNonNull())
+            return false;
+        else
+            return powerUpdateReceiverPowerUpdated.isRegistered &&
+                powerUpdateReceiverPowerOkay.isRegistered &&
+                powerUpdateReceiverPowerLow.isRegistered && 
+                powerUpdateReceiverPowerConnected.isRegistered &&
+                powerUpdateReceiverPowerDisConnected.isRegistered;
+    }
+
+    private boolean powerUpdateReceiversAreNotConnected(){
+        if (powerUpdateReceiversAreNonNull())
+            return true;
+        else
+            return !(powerUpdateReceiverPowerUpdated.isRegistered &&
+                powerUpdateReceiverPowerOkay.isRegistered &&
+                powerUpdateReceiverPowerLow.isRegistered &&
+                powerUpdateReceiverPowerConnected.isRegistered &&
+                powerUpdateReceiverPowerDisConnected.isRegistered);
+    }
+
     public AWSdService() {
         super();
         Log.d(TAG, "AWSdService(): in constructor");
@@ -300,38 +341,39 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
         notificationManager = (NotificationManager)
                 this.getSystemService(NOTIFICATION_SERVICE);
 
-        if (mSensorManager != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                List<Sensor> sensors = mSensorManager.getSensorList(Sensor.TYPE_ALL);
-                ArrayList<String> arrayList = new ArrayList<String>();
-                for (Sensor sensor : sensors) {
-                    arrayList.add(sensor.getName());
-                }
-
-                arrayList.forEach((n) -> Log.d(TAG + "SensorTest", n));
-            }
-        }
-
 
         Log.v(TAG, "onStartCommand() and intent -name: \"->{intent}");
 
         if (Objects.nonNull(intent)) {
-            if (Objects.nonNull(powerUpdateReceiverPowerUpdated)) {
-                if (!powerUpdateReceiverPowerUpdated.isRegistered &&
-                        !Constants.ACTION.STOPFOREGROUND_ACTION.equals(intent.getAction()))
-                    unBindBatteryEvents();
+            if (Constants.GLOBAL_CONSTANTS.mStartUri.equals(intent.getData())) {
+                if (mSensorManager != null) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        List<Sensor> sensors = mSensorManager.getSensorList(Sensor.TYPE_ALL);
+                        ArrayList<String> arrayList = new ArrayList<String>();
+                        for (Sensor sensor : sensors) {
+                            arrayList.add(sensor.getName());
+                        }
 
-                //error getaction null
-                if (!powerUpdateReceiverPowerUpdated.isRegistered &&
-                        !Constants.ACTION.STOPFOREGROUND_ACTION.equals(intent.getAction()))
-                    bindBatteryEvents();
+                        arrayList.forEach((n) -> Log.d(TAG + "SensorTest", n));
+                    }
+                }
+
             }
+            if (!powerUpdateReceiversAreNull() )
+                unBindBatteryEvents();
+
+            //error getaction null
+            if (!powerUpdateReceiversAreConnected() &&
+                    !Constants.ACTION.STOPFOREGROUND_ACTION.equals(intent.getAction()))
+                bindBatteryEvents();
+
         }
 
 
-         if (Objects.nonNull(intent))
-                intentFromOnStart = intent;
-            else return START_NOT_STICKY;
+
+        if (Objects.nonNull(intent))
+            intentFromOnStart = intent;
+        else return START_NOT_STICKY;
 
         if (!Constants.ACTION.BIND_ACTION.equals(intent.getAction())) {
             //createNotificationChannel();
@@ -1416,109 +1458,127 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     }
 
     private void unBindBatteryEvents() {
+        try {
 
-        if (Objects.nonNull(powerUpdateReceiverPowerUpdated)) {
-            if (powerUpdateReceiverPowerUpdated.isRegistered)
-                powerUpdateReceiverPowerUpdated.unregister(this);
-        }
-        if (Objects.nonNull(powerUpdateReceiverPowerLow)) {
-            if (powerUpdateReceiverPowerLow.isRegistered)
-                powerUpdateReceiverPowerLow.unregister(this);
-        }
-        if (Objects.nonNull(powerUpdateReceiverPowerOkay)) {
-            if (powerUpdateReceiverPowerOkay.isRegistered)
-                powerUpdateReceiverPowerOkay.unregister(this);
-        }
-        if (Objects.nonNull(powerUpdateReceiverPowerConnected)) {
-            if (powerUpdateReceiverPowerConnected.isRegistered)
-                powerUpdateReceiverPowerConnected.unregister(this);
-        }
-        if (Objects.nonNull(powerUpdateReceiverPowerDisConnected)) {
-            if (powerUpdateReceiverPowerDisConnected.isRegistered)
-                powerUpdateReceiverPowerDisConnected.unregister(this);
-        }
-        if (Objects.nonNull(powerUpdateReceiver))
-            if (((PowerUpdateReceiver) powerUpdateReceiver).isRegistered)
-                this.unregisterReceiver(powerUpdateReceiver);
-        if (Objects.nonNull(connectionUpdateReceiver))
-            if (connectedConnectionUpdates) {
-                this.unregisterReceiver(connectionUpdateReceiver);
-                connectedConnectionUpdates = false;
+            if (powerUpdateReceiversAreNonNull())
+                return;
+            if (powerUpdateReceiversAreNotConnected())
+                return;
+
+            if (Objects.nonNull(powerUpdateReceiverPowerUpdated)) {
+                if (powerUpdateReceiverPowerUpdated.isRegistered)
+                    powerUpdateReceiverPowerUpdated.unregister(this);
+                powerUpdateReceiverPowerUpdated = null;
             }
+            if (Objects.nonNull(powerUpdateReceiverPowerLow)) {
+                if (powerUpdateReceiverPowerLow.isRegistered)
+                    powerUpdateReceiverPowerLow.unregister(this);
+                powerUpdateReceiverPowerLow = null;
+            }
+            if (Objects.nonNull(powerUpdateReceiverPowerOkay)) {
+                if (powerUpdateReceiverPowerOkay.isRegistered)
+                    powerUpdateReceiverPowerOkay.unregister(this);
+                powerUpdateReceiverPowerOkay = null;
+            }
+            if (Objects.nonNull(powerUpdateReceiverPowerConnected)) {
+                if (powerUpdateReceiverPowerConnected.isRegistered)
+                    powerUpdateReceiverPowerConnected.unregister(this);
+                powerUpdateReceiverPowerConnected = null;
+            }
+            if (Objects.nonNull(powerUpdateReceiverPowerDisConnected)) {
+                if (powerUpdateReceiverPowerDisConnected.isRegistered)
+                    powerUpdateReceiverPowerDisConnected.unregister(this);
+                powerUpdateReceiverPowerDisConnected = null;
+            }
+            if (Objects.nonNull(powerUpdateReceiver))
+                if (((PowerUpdateReceiver) powerUpdateReceiver).isRegistered)
+                    this.unregisterReceiver(powerUpdateReceiver);
+            if (Objects.nonNull(connectionUpdateReceiver))
+                if (connectedConnectionUpdates) {
+                    this.unregisterReceiver(connectionUpdateReceiver);
+                    connectedConnectionUpdates = false;
+                }
 
-        batteryStatusIntent = null;
+            batteryStatusIntent = null;
+        } catch (Exception e){
+            Log.e(TAG, "unBindBatteryEvents: Unable to unbind battery events: ", e);
+        }
     }
 
-    protected void powerUpdateReceiveAction(Intent intent) {
+    protected void powerUpdateReceiveAction(@NonNull Intent intent) {
         try {
             //mBound = serviceLiveData.hasActiveObservers(); // change out global mbound with serviceLiveData.hasActiveObservers())
-            if (intent.getAction() != null) {
+            if (Objects.nonNull(intent.getAction())) {
                 Log.d(TAG, "onReceive(): Received action:  " + intent.getAction());
-                // Are we charging / charged?
-                if (
-                        Intent.ACTION_POWER_CONNECTED.equals(intent.getAction()) ||
-                                Intent.ACTION_POWER_DISCONNECTED.equals(intent.getAction())) {
-                    mChargingState = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
-                    mIsCharging = mChargingState == BatteryManager.BATTERY_STATUS_CHARGING ||
-                            mChargingState == BatteryManager.BATTERY_STATUS_FULL;
+                if (intent.getAction().equals(Intent.ACTION_POWER_CONNECTED)||
+                intent.getAction().equals(Intent.ACTION_POWER_DISCONNECTED)||
+                intent.getAction().equals(Intent.ACTION_BATTERY_CHANGED)||
+                intent.getAction().equals(Intent.ACTION_BATTERY_OKAY)||
+                intent.getAction().equals(Intent.ACTION_BATTERY_LOW)){// Are we charging / charged?
+                    if (
+                            Intent.ACTION_POWER_CONNECTED.equals(intent.getAction()) ||
+                                    Intent.ACTION_POWER_DISCONNECTED.equals(intent.getAction())) {
+                        mChargingState = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+                        mIsCharging = mChargingState == BatteryManager.BATTERY_STATUS_CHARGING ||
+                                mChargingState == BatteryManager.BATTERY_STATUS_FULL;
 
-                    // How are we charging?
-                    chargePlug = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
-                    usbCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_USB;
-                    acCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_AC;
+                        // How are we charging?
+                        chargePlug = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
+                        usbCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_USB;
+                        acCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_AC;
 
-                    if (mIsCharging && Intent.ACTION_POWER_CONNECTED.equals(intent.getAction())) {
-                        {
-                            unBindSensorListeners();
-                            sendMessage(Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_DATA, mSdData.toSettingsJSON());
+                        if (mIsCharging && Intent.ACTION_POWER_CONNECTED.equals(intent.getAction())) {
+                            {
+                                unBindSensorListeners();
+                                sendMessage(Constants.GLOBAL_CONSTANTS.MESSAGE_ITEM_OSD_DATA, mSdData.toSettingsJSON());
+                            }
                         }
+                        if (!mIsCharging && mMobileDeviceConnected && Intent.ACTION_POWER_DISCONNECTED.equals(intent.getAction()))
+                            bindSensorListeners();
+
                     }
-                    if (!mIsCharging && mMobileDeviceConnected && Intent.ACTION_POWER_DISCONNECTED.equals(intent.getAction()))
-                        bindSensorListeners();
 
-                }
+                    if (Intent.ACTION_BATTERY_CHANGED.equals(intent.getAction())) {
+                        if (Objects.isNull(intent)) return;
+                        int level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
 
-                if (Intent.ACTION_BATTERY_CHANGED.equals(intent.getAction())) {
-                    if (Objects.isNull(intent)) return;
-                    int level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+                        int scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+                        batteryPct = 100 * level / (float) scale;
+                        mSdData.batteryPc = (int) (batteryPct);
 
-                    int scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
-                    batteryPct = 100 * level / (float) scale;
-                    mSdData.batteryPc = (int) (batteryPct);
-
-                    mChargingState = batteryStatusIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
-                    mIsCharging = mChargingState == BatteryManager.BATTERY_STATUS_CHARGING ||
-                            mChargingState == BatteryManager.BATTERY_STATUS_FULL;
-
-                    // How are we charging?
-                    chargePlug = batteryStatusIntent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
-                    usbCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_USB;
-                    acCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_AC;
-                    boolean batcap = chargePlug == BatteryManager.BATTERY_PROPERTY_CAPACITY;
-                    boolean wirelessCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_WIRELESS;
-                    if (mIsCharging  && Intent.ACTION_POWER_CONNECTED.equals(intent.getAction()))
-                        unBindSensorListeners();
-                    if (!mIsCharging && mMobileDeviceConnected && mBound && Intent.ACTION_POWER_DISCONNECTED.equals(intent.getAction()))
-                        bindSensorListeners();
-                    if (mMobileDeviceConnected)
                         sendMessage(Constants.ACTION.BATTERYUPDATE_AW_ACTION, String.valueOf(batteryPct));
+                        mChargingState = batteryStatusIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+                        mIsCharging = mChargingState == BatteryManager.BATTERY_STATUS_CHARGING ||
+                                mChargingState == BatteryManager.BATTERY_STATUS_FULL;
 
-                }
-                if (intent.getAction().equals(Intent.ACTION_BATTERY_LOW) ||
-                        intent.getAction().equals(Intent.ACTION_BATTERY_OKAY)) {
+                        // How are we charging?
+                        chargePlug = batteryStatusIntent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
+                        usbCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_USB;
+                        acCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_AC;
+                        boolean batcap = chargePlug == BatteryManager.BATTERY_PROPERTY_CAPACITY;
+                        boolean wirelessCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_WIRELESS;
+                        if (mIsCharging && Intent.ACTION_POWER_CONNECTED.equals(intent.getAction()))
+                            unBindSensorListeners();
+                        if (!mIsCharging && mMobileDeviceConnected && mBound && Intent.ACTION_POWER_DISCONNECTED.equals(intent.getAction()))
+                            bindSensorListeners();
 
-                    if (batteryPct < 15f)
-                        unBindSensorListeners();
-                }
-                if (mBound) {
-                    mUtil.runOnUiThread(() -> {
-                        if (Objects.nonNull(serviceLiveData))
-                            if (serviceLiveData.hasActiveObservers())
-                                serviceLiveData.signalChangedData();
-                        Log.d(TAG, "onBatteryChanged(): runOnUiThread(): updateUI");
+                    }
+                    if (intent.getAction().equals(Intent.ACTION_BATTERY_LOW) ||
+                            intent.getAction().equals(Intent.ACTION_BATTERY_OKAY)) {
 
-                    });
+                        if (batteryPct < 15f)
+                            unBindSensorListeners();
+                    }
+                    if (mBound) {
+                        mUtil.runOnUiThread(() -> {
+                            if (Objects.nonNull(serviceLiveData))
+                                if (serviceLiveData.hasActiveObservers())
+                                    serviceLiveData.signalChangedData();
+                            Log.d(TAG, "onBatteryChanged(): runOnUiThread(): updateUI");
 
+                        });
+
+                    }
                 }
             }
         } catch (Exception e) {
@@ -1529,6 +1589,9 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
 
 
     private void bindBatteryEvents() {
+        if (powerUpdateReceiversAreNonNull())
+            if (powerUpdateReceiversAreConnected())
+                return;
 
         if (Objects.isNull(powerUpdateReceiverPowerConnected))
             powerUpdateReceiverPowerConnected = new PowerUpdateReceiver();
@@ -1544,7 +1607,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
         batteryStatusIntentFilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
 
 
-        if (Objects.isNull(batteryStatusIntent) && !powerUpdateReceiverPowerUpdated.isRegistered) {
+        if (powerUpdateReceiversAreNotConnected()) {
             batteryStatusIntent = powerUpdateReceiverPowerUpdated.register(this, batteryStatusIntentFilter);//this.registerReceiver(powerUpdateReceiver, batteryStatusIntentFilter);
             mSdData.batteryPc = (long) ((batteryStatusIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) / (float) batteryStatusIntent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)) * 100f);
             powerUpdateReceiverPowerUpdated.isRegistered = true;
@@ -1722,7 +1785,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     }
 
     public void checkCurrentPowerLevels(){
-        if (!powerUpdateReceiverPowerUpdated.isRegistered)
+        if (powerUpdateReceiversAreNotConnected())
             bindBatteryEvents();
         if (mSdData.batteryPc == 0 && Objects.nonNull(batteryStatusIntent)) {
             int level = batteryStatusIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
