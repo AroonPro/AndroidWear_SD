@@ -259,11 +259,11 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     private List<Node> connectedNodes;
 
     private boolean powerUpdateReceiversAreNull(){
-        return Objects.isNull(powerUpdateReceiver)&&
-                Objects.isNull(powerUpdateReceiverPowerUpdated)&&
-                Objects.isNull(powerUpdateReceiverPowerOkay)&&
-                Objects.isNull(powerUpdateReceiverPowerLow)&&
-                Objects.isNull(powerUpdateReceiverPowerConnected)&&
+        return Objects.isNull(powerUpdateReceiver)||
+                Objects.isNull(powerUpdateReceiverPowerUpdated)||
+                Objects.isNull(powerUpdateReceiverPowerOkay)||
+                Objects.isNull(powerUpdateReceiverPowerLow)||
+                Objects.isNull(powerUpdateReceiverPowerConnected)||
                 Objects.isNull(powerUpdateReceiverPowerDisConnected);
     }
 
@@ -278,7 +278,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
     }
 
     private boolean powerUpdateReceiversAreConnected(){
-        if (powerUpdateReceiversAreNonNull())
+        if (powerUpdateReceiversAreNull())
             return false;
         else
             return powerUpdateReceiverPowerUpdated.isRegistered &&
