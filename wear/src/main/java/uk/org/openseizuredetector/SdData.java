@@ -47,7 +47,7 @@ import uk.org.openseizuredetector.aw.OsdUtil;
 
 public class SdData<T> implements Parcelable {
     private final static String TAG = "SdData";
-    private final static int N_RAW_DATA = 500;  // 5 seconds at 100 Hz.
+    private final static int N_RAW_DATA = Constants.SD_SERVICE_CONSTANTS.defaultSampleCount;  // 5 seconds at 25 Hz.
 
     // Seizure Detection Algorithm Selection
     public boolean mOsdAlarmActive;
@@ -86,6 +86,8 @@ public class SdData<T> implements Parcelable {
     private JSONObject jsonObj;
     private JSONArray specArr;
     public List<Double> heartRates = new ArrayList<Double>();
+    public int mMute = 0;
+
     public void addNewHeartRateValue (double newHeartRateValue) {
         if (Objects.isNull(heartRates))
             heartRates = new ArrayList<>();
@@ -132,7 +134,7 @@ public class SdData<T> implements Parcelable {
 
     public int mNsamp = 0;
     public int NSAMP = 0;
-    public int mNsampDefault = 250;
+    public int mNsampDefault = Constants.SD_SERVICE_CONSTANTS.defaultSampleCount;
     public double[] rawData;
     public double[] rawData3D;
     public boolean mAdaptiveHrAlarmActive;
@@ -319,6 +321,7 @@ public class SdData<T> implements Parcelable {
             jsonObj.put("watchFwVersion", watchFwVersion);
             jsonObj.put("watchPartNo", watchPartNo);
             jsonObj.put("serverOk",serverOK);
+            jsonObj.put("Mute", mMute);
             arr = new JSONArray();
             for (int i = 0; i < simpleSpec.length; i++) {
                 arr.put(simpleSpec[i]);

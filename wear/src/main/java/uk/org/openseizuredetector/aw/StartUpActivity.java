@@ -153,9 +153,9 @@ public class StartUpActivity extends AppCompatActivity
                     if (mConnection.mAWSdService.mSdData != null) {
                         if (toggleButton.isChecked()) {
                             //checked is now true, meaning alarms should be off
-                            mConnection.mAWSdService.mSdData.alarmState = Constants.GLOBAL_CONSTANTS.ALARMS_OFF;
+                            mConnection.mAWSdService.mSdData.mMute = Constants.GLOBAL_CONSTANTS.ALARMS_OFF;
                         } else {
-                            mConnection.mAWSdService.mSdData.alarmState = Constants.GLOBAL_CONSTANTS.ALARMS_ON;
+                            mConnection.mAWSdService.mSdData.mMute = Constants.GLOBAL_CONSTANTS.ALARMS_ON;
                             //checked is now false, meaning alarms should be on
                         }
                     } else {
