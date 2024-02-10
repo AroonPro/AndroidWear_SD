@@ -127,7 +127,7 @@ public class Constants {
 
     public interface SD_SERVICE_CONSTANTS {
         public static short defaultSampleRate = 25;
-        public static short defaultSampleTime = 10;
+        public static short defaultSampleTime = 5;
         public static short defaultSampleCount = defaultSampleRate * defaultSampleTime;
     }
 }

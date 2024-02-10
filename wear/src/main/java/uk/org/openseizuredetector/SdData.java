@@ -441,6 +441,7 @@ public class SdData<T> implements Parcelable {
 
             if (Double.isNaN(mHR)||Double.isInfinite(mHR)||mHR < 30d)
                 mHR = -1d;
+            jsonObj.put("dataType", Constants.GLOBAL_CONSTANTS.DATA_VALUE_HR);
             jsonObj.put("hrAlarmActive", mHRAlarmActive);
             jsonObj.put("hrAlarmStanding", mHRAlarmStanding);
             jsonObj.put("adaptiveHrAlarmStanding", mAdaptiveHrAlarmStanding);
