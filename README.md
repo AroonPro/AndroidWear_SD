@@ -36,8 +36,9 @@ All code is licenced under GPL Version 3, unless stated otherwise within the cod
 
 ## Credits
 The following libraries and other media are used in AndroidWear_SD
-* https://github.com/philipplackner/SensorGuide/ 
-  as tutorial in correctly addressing sensors. 
+* https://github.com/philipplackner/SensorGuide/
+  as tutorial in correctly addressing sensors.
+* Request permission integers: [https://github.com/vanyasem/Godot-AndroidPermissions]
 * xxxx
 
 ## Special dedications:

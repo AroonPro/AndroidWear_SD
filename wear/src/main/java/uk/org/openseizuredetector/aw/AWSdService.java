@@ -652,16 +652,16 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 break;
             case 1:
                 titleStr = "WARNING";
-                smsStr = "OSD Active: " + mSdData.mHR + " bpm "  + mSdData.alarmPhrase;
+                smsStr = "OSD Active: " + mSdData.mHr + " bpm "  + mSdData.alarmPhrase;
             case 2:
                 titleStr = "ALARM";
-                smsStr = "OSD Active: " + mSdData.mHR + " bpm " + mSdData.alarmPhrase;
+                smsStr = "OSD Active: " + mSdData.mHr + " bpm " + mSdData.alarmPhrase;
             case -1:
                 titleStr = "FAULT";
-                smsStr = "OSD Active: " + mSdData.mHR + " bpm " + mSdData.alarmPhrase;
+                smsStr = "OSD Active: " + mSdData.mHr + " bpm " + mSdData.alarmPhrase;
             default:
                 titleStr = "OK";
-                smsStr = "OSD Active: " + mSdData.mHR + " bpm";
+                smsStr = "OSD Active: " + mSdData.mHr + " bpm";
         }
         String man[] = {Build.VERSION.SDK_INT>=Build.VERSION_CODES.TIRAMISU?Manifest.permission.BODY_SENSORS_BACKGROUND:"",
                 Manifest.permission.FOREGROUND_SERVICE,
@@ -892,7 +892,7 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                     Log.d(TAG,"onMessageReceived(): is charging detected. Not initialising sensors");
                     return;
                 }
-                prefValHrAlarmActive = mSdData.mHRAlarmActive;
+                prefValHrAlarmActive = mSdData.mHrAlarmActive;
                 if (!Objects.equals(mNodeFullName, null))
                     if (mNodeFullName.isEmpty()) {
                         String nodeFullName = mNodeFullName;
@@ -1803,9 +1803,9 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             int newValue = Math.round(event.values[0]);
             //Log.d(LOG_TAG,sensorEvent.sensor.getName() + " changed to: " + newValue);
             // only do something if the value differs from the value before and the value is not 0.
-            if (mSdData.mHR != newValue && newValue != 0) {
+            if (mSdData.mHr != newValue && newValue != 0) {
                 // save the new value
-                mSdData.mHR = newValue;
+                mSdData.mHr = newValue;
                 mSdData.mHistoricHrBuf.add(newValue);
                 // add it to the list and computer a new average
 
@@ -2011,8 +2011,8 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
             //ignore alarms when muted
             return;
         }
-        //temporary force true mHRAlarmActive
-        //mSdData.mHRAlarmActive = (mSdData.alarmState != 6 && mSdData.alarmState != 10);
+        //temporary force true mHrAlarmActive
+        //mSdData.mHrAlarmActive = (mSdData.alarmState != 6 && mSdData.alarmState != 10);
 
         Long alarmHoldOfTimeOffBody = (lastTimeOffBody - (TimeUnit.MINUTES.toMillis(mAlarmTime)));
         if (isOffBody && !isCharging()){
@@ -2032,23 +2032,23 @@ public class AWSdService extends RemoteWorkerService implements SensorEventListe
                 mSdData.alarmStanding = true;
             }
 
-            if (mSdData.mHRAvg > 0d) {
-                if (mSdData.mHRAlarmActive && ((mSdData.mHRAvg < mSdData.mHRThreshMin))) {
-                    if (!mSdData.mHRAlarmStanding) inAlarm = true;
-                    mSdData.mHRAlarmStanding = true;
+            if (mSdData.mHrAvg > 0d) {
+                if (mSdData.mHrAlarmActive && ((mSdData.mHrAvg < mSdData.mHrThreshMin))) {
+                    if (!mSdData.mHrAlarmStanding) inAlarm = true;
+                    mSdData.mHrAlarmStanding = true;
                     mAlarmTime = (int) mSdData.alarmTime;
                     mSdData.alarmPhrase = "Heart rate average lower than minThreshold";
                 }
-                if (mSdData.mHRAlarmActive && ((mSdData.mHRAvg > mSdData.mHRThreshMax))) {
-                    if (!mSdData.mHRAlarmStanding) inAlarm = true;
-                    mSdData.mHRAlarmStanding = true;
+                if (mSdData.mHrAlarmActive && ((mSdData.mHrAvg > mSdData.mHrThreshMax))) {
+                    if (!mSdData.mHrAlarmStanding) inAlarm = true;
+                    mSdData.mHrAlarmStanding = true;
                     mAlarmTime = (int) mSdData.alarmTime;
                     mSdData.alarmPhrase = "Heart rate average higher than maxThreshold";
                 }
-                if (mSdData.mHRAlarmActive && mSdData.mHRAvg != 0d && mSdData.mHR > mSdData.mHRAvg * mHeartPercentThresh) {
-                    if (!mSdData.mHRAlarmStanding) inAlarm = true;
+                if (mSdData.mHrAlarmActive && mSdData.mHrAvg != 0d && mSdData.mHr > mSdData.mHrAvg * mHeartPercentThresh) {
+                    if (!mSdData.mHrAlarmStanding) inAlarm = true;
                     mAlarmTime = (int) mSdData.alarmTime;
-                    mSdData.mHRAlarmStanding = true;
+                    mSdData.mHrAlarmStanding = true;
                     mSdData.alarmPhrase = "Heart rate higher than 30* of average Threshold";
                 }
             }

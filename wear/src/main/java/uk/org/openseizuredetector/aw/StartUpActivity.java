@@ -268,7 +268,7 @@ public class StartUpActivity extends AppCompatActivity
                                                 .append(" time: ")
                                                 .append(Calendar.getInstance().getTime())
                                                 .append(" ❤️ ")
-                                                .append((short) mSdData.mHR)
+                                                .append((short) mSdData.mHr)
                                                 .append(" \uD83D\uDD0B% ")
                                                 .append(mSdData.batteryPc)
                                                 .toString());
@@ -645,7 +645,7 @@ public class StartUpActivity extends AppCompatActivity
                                         .append(" time: ")
                                         .append(Calendar.getInstance().getTime())
                                         .append("\n ❤️ ")
-                                        .append((short) mConnection.mAWSdService.mSdData.mHR)
+                                        .append((short) mConnection.mAWSdService.mSdData.mHr)
                                         .append(" \uD83D\uDD0B% ")
                                         .append(mConnection.mAWSdService.mSdData.batteryPc)
                                         .append(" 📱 \uD83D\uDD0B% : ")
