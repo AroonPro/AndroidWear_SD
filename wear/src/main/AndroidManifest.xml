@@ -64,6 +64,7 @@
             android:enabled="true"
             android:exported="true"
             android:launchMode="singleTask"
+            android:foregroundServiceType="health|location"
             android:taskAffinity="">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

@@ -7,7 +7,13 @@ import android.hardware.Sensor;
 import android.os.Build;
 import android.system.Os;
 import android.util.Log;
+import com.samsung.android.sdk.healthdata.HealthDeviceManager;
+import com.samsung.android.sdk.healthdata.HealthData;
+import com.samsung.android.sdk.healthdata.HealthDevice;
+import com.samsung.android.sdk.healthdata.HealthConstants;
+import com.samsung.android.sdk.healthdata.HealthPermissionManager.PermissionType;
 
+import uk.org.openseizuredetector.Constants;
 
 abstract class AccelerationSensor extends AndroidSensor {
     AccelerationSensor(Context context,
@@ -30,6 +36,7 @@ abstract class HeartRateSensor extends AndroidSensor {
                 PackageManager.FEATURE_SENSOR_HEART_RATE
                 ,
                 new String[]{
+                        
                         Manifest.permission.BODY_SENSORS,
                         Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU?Manifest.permission.BODY_SENSORS_BACKGROUND:"",
                         (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && sensorDefaultSampleTimeUs <6e3)?Manifest.permission.HIGH_SAMPLING_RATE_SENSORS:"",

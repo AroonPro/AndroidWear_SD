@@ -2,6 +2,7 @@ repositories {
     mavenCentral()
     maven { url "https://oss.sonatype.org/content/groups/public/" }
     google()
+    maven { url 'https://jitpack.io' }
 }
 apply plugin: 'com.android.application'
 apply plugin: 'de.mannodermaus.android-junit5'
@@ -31,6 +32,15 @@ android {
         // "pm clear" command after each test invocation. This command ensures
         // that the app's state is completely cleared between tests.
         testInstrumentationRunnerArguments clearPackageData: 'true'
+
+    }
+
+    sourceSets {
+        main {
+            // We gaan vanuit AndroidWear_SD/wear TWEE mappen omhoog naar de hoofdmap,
+            // en dan omlaag naar Android_Pebble_SD
+            java.srcDirs += ["../../Android_Pebble_SD/app/src/main/java"]
+        }
     }
     testOptions {
         unitTests.all {
@@ -113,6 +123,11 @@ dependencies {
     implementation 'io.netty:netty-tcnative-boringssl-static:2.0.61.Final'
     implementation 'com.google.protobuf:protobuf-java-util:4.0.0-rc-2'
     implementation 'io.grpc:grpc-all:1.56.1'
+    implementation fileTree(dir: './src/main/libs', include: ['*.aar', '*.jar'], exclude: [])
+    implementation 'com.android.volley:volley:1.2.1'
+    implementation 'com.google.firebase:firebase-firestore:26.1.0'
+    implementation 'com.google.android.gms:play-services-tflite-java:16.4.0'
+    implementation 'com.google.ai.edge.litert:litert-api:1.4.1'
     androidTestUtil 'androidx.test:orchestrator:1.4.2'
 
 
@@ -149,7 +164,6 @@ dependencies {
     //noinspection GradleDependency
     androidTestImplementation 'androidx.benchmark:benchmark-macro-junit4:1.1.1'
     implementation "androidx.multidex:multidex:2.0.1"
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation 'com.github.wendykierp:JTransforms:3.1'
     implementation 'com.google.android.gms:play-services-wearable:18.1.0'
     implementation compileOnly('com.google.android.support:wearable:2.9.0')
@@ -194,7 +208,7 @@ dependencies {
     // Work Manager and worker: used instead of Services
     implementation 'androidx.work:work-runtime:2.8.1'
     implementation 'androidx.work:work-multiprocess:2.8.1'
-
+    implementation 'com.google.ai.edge.litert:litert-support:0.1.0'
 
     // Set this dependency if you want to use Mockito
 //    testImplementation 'org.mockito:mockito-core:5.3.1'
@@ -214,5 +228,40 @@ dependencies {
     androidTestImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.0'
     androidTestImplementation("de.mannodermaus.junit5:android-test-core:1.3.0")
     androidTestRuntimeOnly("de.mannodermaus.junit5:android-test-runner:1.3.0")
-}
+    // Firebase Core & Auth
+    implementation platform('com.google.firebase:firebase-bom:32.7.0')
+    implementation 'com.google.firebase:firebase-auth'
 
+    // Firebase UI (Specifiek voor de login schermen)
+    implementation 'com.firebaseui:firebase-ui-auth:8.0.2'
+    implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0'
+
+    // Google Play Services voor Wear OS
+    implementation 'com.google.android.gms:play-services-auth:20.7.0'
+
+    // Bluetooth 'Blessed' library (voor SdDataSourceBLE2)
+    implementation 'com.github.weliem:blessed-android:2.5.0'
+
+    // MPAndroidChart (Herhaal voor de zekerheid, zorg voor 'mikephil' in imports!)
+    implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0'
+
+    // Pebble Kit (Alleen nodig als je echt nog met Pebble horloges communiceert)
+    implementation 'com.getpebble:pebblekit:4.0.1'
+
+    implementation "com.github.RideBeeline:android-bluetooth-current-time-service:0.1.2"
+}
+// EN_GB: Dependency Resolution Strategy
+configurations.all {
+    resolutionStrategy {
+        // Force the use of the Lite version that Firebase prefers
+        force 'com.google.protobuf:protobuf-javalite:3.21.12'
+
+        // Completely exclude the heavy 'java' version to prevent duplicates
+        exclude group: 'com.google.protobuf', module: 'protobuf-java'
+
+        // Force LiteRT and exclude the old TFLite API to resolve duplicates
+        force 'com.google.ai.edge.litert:litert-api:1.4.1'
+
+        exclude group: 'org.tensorflow', module: 'tensorflow-lite-api'
+    }
+}
