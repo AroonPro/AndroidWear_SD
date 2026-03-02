@@ -9,6 +9,10 @@ import android.content.IntentFilter;
 import android.os.Handler;
 import android.util.Log;
 
+import uk.org.openseizuredetector.Constants;
+import uk.org.openseizuredetector.OsdUtil;
+import uk.org.openseizuredetector.SdServiceConnection;
+
 public class PowerConnectionReceiver extends BroadcastReceiver {
     private final static String TAG = Constants.TAGS.AWSDService;
     private Context mContext = null;
